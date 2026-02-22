@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./data/option-strat.db"
+    database_url: str = "sqlite+aiosqlite:///./data/option-smart.db"
 
     # Server
     backend_port: int = 8000

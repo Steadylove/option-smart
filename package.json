@@ -1,8 +1,8 @@
 {
-  "name": "option-strat",
+  "name": "option-smart",
   "version": "0.1.0",
   "private": true,
-  "description": "Option seller strategy AI agent with Longbridge integration",
+  "description": "OptionSmart - AI-powered option selling strategy assistant",
   "scripts": {
     "prepare": "husky"
   },

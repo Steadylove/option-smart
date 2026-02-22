@@ -35,7 +35,7 @@ export function Sidebar() {
           <Activity className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
-          OptionStrat
+          OptionSmart
         </span>
       </div>
 

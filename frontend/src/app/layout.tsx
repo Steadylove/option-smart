@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OptionStrat - Option Seller AI Agent',
-  description: 'AI-powered option selling strategy assistant',
+  title: 'OptionSmart - Option Seller AI Agent',
+  description: 'OptionSmart - AI-powered option selling strategy assistant',
 };
 
 export default function RootLayout({

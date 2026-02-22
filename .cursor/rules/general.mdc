@@ -1,5 +1,5 @@
 ---
-description: "Core project conventions for Option Strategy AI Agent. Covers code style, file naming, error handling, and git workflow."
+description: "Core project conventions for OptionSmart. Covers code style, file naming, error handling, and git workflow."
 alwaysApply: true
 ---
 

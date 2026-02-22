@@ -29,8 +29,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Option Strategy AI Agent",
-    description="Option seller strategy assistant with Greeks analysis and AI recommendations",
+    title="OptionSmart",
+    description="OptionSmart - AI-powered option selling strategy assistant with Greeks analysis",
     version="0.1.0",
     lifespan=lifespan,
 )
