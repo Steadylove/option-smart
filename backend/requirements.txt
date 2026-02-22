@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+longport
+scipy
+numpy
+pydantic
+pydantic-settings
+python-dotenv
+aiosqlite
+sqlalchemy[asyncio]
+httpx
+python-telegram-bot
+zhipuai
+apscheduler

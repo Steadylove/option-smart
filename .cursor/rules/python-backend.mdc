@@ -1,6 +1,6 @@
 ---
-description: Python backend conventions (FastAPI)
-globs: backend/**/*.py
+description: "Python backend conventions for FastAPI. Apply when creating or modifying API routes, services, models, or core logic in the backend directory."
+globs: "backend/**/*.py"
 alwaysApply: false
 ---
 

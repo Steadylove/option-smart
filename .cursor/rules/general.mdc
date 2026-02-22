@@ -1,5 +1,5 @@
 ---
-description: Core project conventions for Option Strategy AI Agent
+description: "Core project conventions for Option Strategy AI Agent. Covers code style, file naming, error handling, and git workflow."
 alwaysApply: true
 ---
 
@@ -37,6 +37,12 @@ Tech stack: Next.js + TailwindCSS (frontend), Python FastAPI (backend), GLM-5 (A
 - Never swallow errors silently. Always log with context.
 - Backend: raise typed exceptions with meaningful messages.
 - Frontend: show user-friendly error states, log details to console.
+
+## Dependencies
+
+- Always use the latest stable version of any library. Never pin to outdated versions.
+- When adding a new dependency, verify the latest stable version first (not alpha/beta/rc).
+- Use the package manager to add dependencies (e.g. `npm install`, `pip install`) — do not make up version numbers.
 
 ## Git
 

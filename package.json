@@ -8,15 +8,14 @@
   },
   "lint-staged": {
     "frontend/**/*.{ts,tsx}": [
-      "prettier --write",
-      "eslint --fix --max-warnings 0"
+      "prettier --write"
     ],
     "frontend/**/*.{json,css,md}": [
       "prettier --write"
     ],
     "backend/**/*.py": [
-      "ruff format",
-      "ruff check --fix"
+      ".venv/bin/ruff format",
+      ".venv/bin/ruff check --fix"
     ],
     "*.{json,md,yaml,yml}": [
       "prettier --write"

@@ -1,6 +1,8 @@
 ---
-description: Frontend conventions (Next.js + TailwindCSS)
-globs: frontend/**/*.{ts,tsx}
+description: "Frontend conventions for Next.js + TailwindCSS. Apply when creating or modifying React components, hooks, pages, or TypeScript files in the frontend directory."
+globs:
+  - "frontend/**/*.ts"
+  - "frontend/**/*.tsx"
 alwaysApply: false
 ---
 

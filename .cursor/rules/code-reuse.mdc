@@ -1,5 +1,5 @@
 ---
-description: Code reuse and duplication prevention guidelines
+description: "Code reuse and duplication prevention. Requires searching existing code before writing new logic, and asking the user when similar implementations exist."
 alwaysApply: true
 ---
 
