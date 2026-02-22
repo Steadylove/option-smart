@@ -1,0 +1,32 @@
+---
+description: Code reuse and duplication prevention guidelines
+alwaysApply: true
+---
+
+# Code Reuse Protocol
+
+## Before Writing New Code
+
+1. Search the codebase for similar patterns using Grep/SemanticSearch.
+2. Check `core/` (backend) and `lib/` + `hooks/` (frontend) for existing utilities.
+3. If a match is found and directly reusable — use it.
+4. If a match is found but needs modification — **stop and ask the user**:
+   - "I found similar logic in `path/to/file`. Should I refactor it into a shared utility, or keep them separate?"
+
+## When to Extract Shared Code
+
+- Same logic appears in 2+ places → extract immediately.
+- Similar logic with small variations → extract with parameters/config.
+- Complex logic used once but likely needed again → extract proactively.
+
+## Naming Shared Utilities
+
+- Backend: `backend/core/<domain>.py` (e.g., `greeks.py`, `risk.py`, `position.py`)
+- Frontend: `frontend/lib/<domain>.ts` or `frontend/hooks/use-<domain>.ts`
+- Shared types: `frontend/types/<domain>.ts` or `backend/models/<domain>.py`
+
+## Never Duplicate
+
+- API endpoint URLs — define once in a constants file.
+- Calculation formulas (Greeks, P&L, probability) — single source of truth.
+- Type definitions — one schema, auto-generate if cross-language.

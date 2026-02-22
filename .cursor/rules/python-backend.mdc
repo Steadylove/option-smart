@@ -1,0 +1,42 @@
+---
+description: Python backend conventions (FastAPI)
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Python Backend Rules
+
+## Style
+
+- Python 3.11+. Use type hints on all function signatures.
+- Format with `ruff format`. Lint with `ruff check`.
+- Prefer `async def` for I/O-bound endpoints.
+- Use Pydantic models for request/response schemas — never pass raw dicts across boundaries.
+
+## Project Structure
+
+```
+backend/
+  api/          # FastAPI routers
+  core/         # Shared logic (greeks calc, risk engine, etc.)
+  services/     # External integrations (Longbridge, GLM-5, Telegram)
+  models/       # Pydantic schemas & DB models
+  tasks/        # Scheduled jobs (alerts, daily reports)
+```
+
+## Patterns
+
+```python
+# ❌ BAD — raw dict, no types
+def calc(data):
+    return {"delta": data["iv"] * 0.5}
+
+# ✅ GOOD — typed, clear
+def calc_delta(iv: float, spot: float, strike: float) -> float:
+    """Compute BS delta from implied volatility."""
+    ...
+```
+
+- Reuse service singletons via FastAPI dependency injection.
+- Keep route handlers thin — delegate logic to `core/` or `services/`.
+- Use `logging` module, never `print()`.

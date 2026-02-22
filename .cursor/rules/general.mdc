@@ -1,0 +1,44 @@
+---
+description: Core project conventions for Option Strategy AI Agent
+alwaysApply: true
+---
+
+# General Development Rules
+
+## Project Context
+
+Option seller (theta decay) AI agent for TQQQ/TSLL/NVDL.
+Tech stack: Next.js + TailwindCSS (frontend), Python FastAPI (backend), GLM-5 (AI), Longbridge OpenAPI (market data).
+
+## Code Principles
+
+- Keep code concise. No over-engineering, no premature abstraction.
+- Write short, clear English comments — explain "why", never "what".
+- Every function should do one thing. If it exceeds 40 lines, consider splitting.
+- Prefer composition over inheritance.
+- Use descriptive variable/function names — the name IS the documentation.
+
+## Before Adding New Features
+
+1. Review the current directory structure and existing implementations.
+2. Reuse existing utilities, hooks, services, and components whenever possible.
+3. If similar logic exists but can't be directly reused, ASK the user how to handle it before proceeding. Options include: refactoring the original, creating a shared abstraction, or duplicating with justification.
+4. Never create a new file for logic that already has a natural home.
+
+## File & Folder Conventions
+
+- Use kebab-case for file names: `option-chain.tsx`, `greeks-calculator.py`
+- Group by feature/domain, not by technical role.
+- Shared utilities go in `lib/` (frontend) or `core/` (backend).
+- Keep imports organized: stdlib → third-party → local, separated by blank lines.
+
+## Error Handling
+
+- Never swallow errors silently. Always log with context.
+- Backend: raise typed exceptions with meaningful messages.
+- Frontend: show user-friendly error states, log details to console.
+
+## Git
+
+- Commit messages: imperative mood, concise, lowercase. e.g. `add greeks calculation engine`
+- One logical change per commit. Don't mix refactoring with features.

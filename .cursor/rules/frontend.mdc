@@ -1,0 +1,54 @@
+---
+description: Frontend conventions (Next.js + TailwindCSS)
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend Rules
+
+## Style
+
+- TypeScript strict mode. No `any` — use `unknown` + type guards if needed.
+- Format with `prettier`. Lint with `eslint`.
+- Use TailwindCSS for styling. No CSS modules, no styled-components.
+
+## Components
+
+- Functional components only. Use named exports.
+- Extract reusable logic into custom hooks (`hooks/use-*.ts`).
+- Keep components under 150 lines. Split into sub-components if larger.
+- Colocate component-specific types in the same file.
+
+```tsx
+// ❌ BAD — inline fetch, no separation
+export function Dashboard() {
+  const [data, setData] = useState(null);
+  useEffect(() => { fetch("/api/...").then(...) }, []);
+  return <div>...</div>;
+}
+
+// ✅ GOOD — logic in hook, component is pure UI
+export function Dashboard() {
+  const { positions, isLoading } = usePositions();
+  if (isLoading) return <Skeleton />;
+  return <PositionTable data={positions} />;
+}
+```
+
+## Data Fetching
+
+- Use `swr` or `react-query` for server state. Don't roll your own cache.
+- API client goes in `lib/api.ts` — single source of truth for all endpoints.
+- Type all API responses with shared interfaces from `types/`.
+
+## File Structure
+
+```
+frontend/
+  app/            # Next.js app router pages
+  components/     # Reusable UI components
+    ui/           # Primitives (Button, Card, etc.)
+  hooks/          # Custom hooks
+  lib/            # Utilities, API client
+  types/          # Shared TypeScript interfaces
+```

@@ -1,0 +1,30 @@
+{
+  "name": "option-strat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Option seller strategy AI agent with Longbridge integration",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix --max-warnings 0"
+    ],
+    "frontend/**/*.{json,css,md}": [
+      "prettier --write"
+    ],
+    "backend/**/*.py": [
+      "ruff format",
+      "ruff check --fix"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1"
+  }
+}
