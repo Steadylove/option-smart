@@ -182,7 +182,7 @@ function AllView({
   return (
     <Table>
       <TableHeader>
-        <TableRow className="border-b border-border hover:bg-transparent">
+        <TableRow className="sticky top-0 z-10 border-b border-border bg-card hover:bg-transparent">
           <TableHead
             colSpan={headers.length}
             className="h-8 text-center text-[11px] font-bold text-chart-2"
@@ -197,7 +197,7 @@ function AllView({
             {t('headerPuts')}
           </TableHead>
         </TableRow>
-        <TableRow className="border-b border-border hover:bg-transparent">
+        <TableRow className="sticky top-8 z-10 border-b border-border bg-card hover:bg-transparent">
           {headers.map((h) => (
             <TableHead
               key={`c-${h.key}`}
@@ -278,7 +278,7 @@ function SingleSideView({
   return (
     <Table>
       <TableHeader>
-        <TableRow className="border-b border-border hover:bg-transparent">
+        <TableRow className="sticky top-0 z-10 border-b border-border bg-card hover:bg-transparent">
           <TableHead className="h-8 bg-muted text-center text-[10px] font-bold text-foreground">
             {t('strike')}
           </TableHead>
