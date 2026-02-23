@@ -1,10 +1,19 @@
-"""AI chat service — ZhipuAI GLM with tool calling via OpenAI-compatible API."""
+"""AI chat service — LangChain ChatOpenAI via ZhipuAI's OpenAI-compatible API.
 
-import json
+Uses ChatOpenAI.bind_tools() for proper tool calling protocol,
+eliminating XML tool-call artifacts that raw httpx integration suffered from.
+"""
+
 import logging
 from collections.abc import AsyncGenerator
 
-import httpx
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_openai import ChatOpenAI
 
 from backend.config import settings
 from backend.core.ai_tools import TOOLS, execute_tool
@@ -12,22 +21,35 @@ from backend.models.schemas import PositionDiagnosis
 
 logger = logging.getLogger(__name__)
 
-_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-_MODEL = "glm-4-plus"
-_MAX_TOOL_ROUNDS = 5  # prevent infinite tool-call loops
+_MAX_TOOL_ROUNDS = 10
 
 SYSTEM_PROMPT = """\
-你是 OptionSmart AI 顾问，一个专业的期权卖方策略助手。
+你是 Robby，OptionSmart 的 AI 顾问，一个专业的期权卖方策略助手。
 
 ## 你的专业领域
 - 期权卖方策略（Cash-Secured Put、Covered Call、Credit Spread、Iron Condor、Strangle）
 - 标的：TQQQ、TSLL、NVDL 等杠杆 ETF
 - 希腊值分析（Delta、Gamma、Theta、Vega）
 - 风险管理与仓位诊断
+- 市场事件分析与价格归因
 
 ## 你的能力
 你可以调用工具获取实时数据：持仓概览、个股行情、持仓诊断、压力测试、决策矩阵、告警列表。
+你还可以搜索市场新闻、查看财报/经济事件日历、分析价格变动原因、评估事件对持仓的影响。
 收到用户问题后，先思考需要哪些数据，主动调用工具获取，然后基于数据给出专业分析。
+
+## 事件驱动分析能力
+- 给出持仓建议时，必须先检查该标的未来 14 天的事件（财报、FOMC、CPI 等）
+- 财报前持仓策略：评估 IV 膨胀对 Theta 收益的影响，Gamma 风险加剧
+- 财报后策略：IV 压缩（IV Crush）对持仓价值的影响
+- FOMC/CPI 等宏观事件对 TQQQ（大盘敏感标的）影响显著，需特别提醒
+- 用户询问"为什么涨/跌"时，主动搜索新闻并关联分析
+- 给出操作建议时，标注事件风险窗口期（如"NVDA 财报在 3 天后，建议在此之前平仓高 Gamma 持仓"）
+
+## 标的映射
+- TQQQ 跟踪 QQQ / NASDAQ 100，受大盘和科技股整体影响
+- TSLL 跟踪 TSLA，受特斯拉公司事件影响
+- NVDL 跟踪 NVDA，受英伟达公司事件和 AI/芯片行业影响
 
 ## 回答风格
 - 用中文回答，简洁专业
@@ -35,14 +57,34 @@ SYSTEM_PROMPT = """\
 - 引用具体数据（价格、希腊值、盈亏比例）支撑你的判断
 - 风险提示要具体，不要泛泛而谈
 - 如果情况紧急（持仓处于危险区），要明确告知优先级
+- 提及事件风险时，给出具体日期和预期影响
 """
 
 
-def _headers() -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {settings.zhipuai_api_key}",
-        "Content-Type": "application/json",
-    }
+def _llm() -> ChatOpenAI:
+    return ChatOpenAI(
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+        api_key=settings.zhipuai_api_key,
+        model="glm-4-plus",
+        temperature=0.7,
+        max_tokens=2048,
+        timeout=120,
+    )
+
+
+def _to_lc_messages(messages: list[dict]) -> list:
+    """Convert frontend message dicts to LangChain message objects."""
+    result = []
+    for m in messages:
+        role = m.get("role", "")
+        content = m.get("content", "")
+        if role == "user":
+            result.append(HumanMessage(content=content))
+        elif role == "assistant":
+            result.append(AIMessage(content=content))
+        elif role == "system":
+            result.append(SystemMessage(content=content))
+    return result
 
 
 async def chat_with_tools(
@@ -50,85 +92,24 @@ async def chat_with_tools(
     diagnoses: list[PositionDiagnosis],
 ) -> str:
     """Non-streaming chat with tool calling loop. Returns final text."""
-    working_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+    llm_with_tools = _llm().bind_tools(TOOLS)
+    working = [SystemMessage(content=SYSTEM_PROMPT), *_to_lc_messages(messages)]
 
     for _round in range(_MAX_TOOL_ROUNDS):
-        body = {
-            "model": _MODEL,
-            "messages": working_messages,
-            "tools": TOOLS,
-            "tool_choice": "auto",
-            "temperature": 0.7,
-            "max_tokens": 2048,
-        }
+        response: AIMessage = await llm_with_tools.ainvoke(working)
 
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(_API_URL, headers=_headers(), json=body)
-            if resp.status_code != 200:
-                logger.error("ZhipuAI API error %d: %s", resp.status_code, resp.text)
-                return f"AI 服务暂时不可用（错误码 {resp.status_code}），请稍后再试。"
+        if not response.tool_calls:
+            return response.content or ""
 
-            data = resp.json()
+        working.append(response)
+        for tc in response.tool_calls:
+            logger.info("Tool [round %d]: %s(%s)", _round + 1, tc["name"], tc["args"])
+            result = await execute_tool(tc["name"], tc["args"], diagnoses)
+            working.append(ToolMessage(content=result, tool_call_id=tc["id"]))
 
-        choice = data["choices"][0]
-        message = choice["message"]
-
-        # No tool calls — return the text content
-        if not message.get("tool_calls"):
-            return message.get("content", "")
-
-        # Process tool calls
-        working_messages.append(message)
-
-        for tc in message["tool_calls"]:
-            fn_name = tc["function"]["name"]
-            fn_args = json.loads(tc["function"]["arguments"])
-            logger.info("AI tool call: %s(%s)", fn_name, fn_args)
-
-            result = await execute_tool(fn_name, fn_args, diagnoses)
-
-            working_messages.append(
-                {
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": tc["id"],
-                }
-            )
-
-    return "分析超时，请尝试简化你的问题。"
-
-
-async def _stream_completion(
-    working_messages: list[dict],
-) -> AsyncGenerator[str, None]:
-    """Make a streaming request to ZhipuAI and yield text chunks."""
-    body = {
-        "model": _MODEL,
-        "messages": working_messages,
-        "stream": True,
-        "temperature": 0.7,
-        "max_tokens": 2048,
-    }
-
-    async with (
-        httpx.AsyncClient(timeout=120) as client,
-        client.stream("POST", _API_URL, headers=_headers(), json=body) as resp,
-    ):
-        async for line in resp.aiter_lines():
-            if not line.startswith("data:"):
-                continue
-            payload = line[5:].strip()
-            if payload == "[DONE]":
-                return
-
-            try:
-                chunk = json.loads(payload)
-                delta = chunk["choices"][0].get("delta", {})
-                content = delta.get("content")
-                if content:
-                    yield content
-            except (json.JSONDecodeError, KeyError, IndexError):
-                continue
+    # Exhausted rounds — one last attempt without tools
+    response = await _llm().ainvoke(working)
+    return response.content or "分析超时，请尝试简化你的问题。"
 
 
 async def chat_stream(
@@ -136,56 +117,36 @@ async def chat_stream(
     diagnoses: list[PositionDiagnosis],
 ) -> AsyncGenerator[str, None]:
     """Streaming chat — resolve tool calls first, then stream final answer."""
-    working_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+    llm_with_tools = _llm().bind_tools(TOOLS)
+    working = [SystemMessage(content=SYSTEM_PROMPT), *_to_lc_messages(messages)]
 
     for _round in range(_MAX_TOOL_ROUNDS):
-        body = {
-            "model": _MODEL,
-            "messages": working_messages,
-            "tools": TOOLS,
-            "tool_choice": "auto",
-            "temperature": 0.7,
-            "max_tokens": 2048,
-        }
-
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(_API_URL, headers=_headers(), json=body)
-            if resp.status_code != 200:
-                yield f"AI 服务暂时不可用（错误码 {resp.status_code}）"
-                return
-
-            data = resp.json()
-
-        choice = data["choices"][0]
-        message = choice["message"]
-
-        if not message.get("tool_calls"):
-            # No more tools — stream the final answer
-            async for chunk in _stream_completion(working_messages):
-                yield chunk
+        try:
+            response: AIMessage = await llm_with_tools.ainvoke(working)
+        except Exception as e:
+            logger.error("AI invoke failed: %s", e)
+            yield f"AI 服务暂时不可用: {e}"
             return
 
-        # Execute tools
-        working_messages.append(message)
+        if not response.tool_calls:
+            break
+
+        working.append(response)
         tool_names = []
-
-        for tc in message["tool_calls"]:
-            fn_name = tc["function"]["name"]
-            fn_args = json.loads(tc["function"]["arguments"])
-            tool_names.append(fn_name)
-            logger.info("AI tool call: %s(%s)", fn_name, fn_args)
-
-            result = await execute_tool(fn_name, fn_args, diagnoses)
-            working_messages.append(
-                {
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": tc["id"],
-                }
-            )
+        for tc in response.tool_calls:
+            tool_names.append(tc["name"])
+            logger.info("Tool [round %d]: %s(%s)", _round + 1, tc["name"], tc["args"])
+            result = await execute_tool(tc["name"], tc["args"], diagnoses)
+            working.append(ToolMessage(content=result, tool_call_id=tc["id"]))
 
         yield f"[TOOL:{','.join(tool_names)}]"
 
-    # All rounds exhausted — stream whatever final answer we can get
-    async for chunk in _stream_completion(working_messages):
-        yield chunk
+    # Stream final answer — tools visible but calling explicitly disabled
+    stream_llm = _llm().bind_tools(TOOLS, tool_choice="none")
+    try:
+        async for chunk in stream_llm.astream(working):
+            if chunk.content:
+                yield chunk.content
+    except Exception as e:
+        logger.error("AI stream failed: %s", e)
+        yield f"\n\nAI 流式输出出错: {e}"

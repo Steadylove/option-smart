@@ -10,5 +10,6 @@ aiosqlite
 sqlalchemy[asyncio]
 httpx[socks]
 python-telegram-bot
-zhipuai
+langchain-openai
 apscheduler
+finnhub-python

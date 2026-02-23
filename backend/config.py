@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # ZhipuAI (GLM-5)
     zhipuai_api_key: str = ""
 
+    # Finnhub
+    finnhub_api_key: str = ""
+
     # Telegram
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -23,6 +26,14 @@ class Settings(BaseSettings):
 
     # Watched symbols
     watched_symbols: list[str] = ["TQQQ.US", "TSLL.US", "NVDL.US"]
+
+    # Leveraged ETF → underlying mapping for news/earnings lookup
+    symbol_underlying_map: dict[str, list[str]] = {
+        "TQQQ.US": ["QQQ", "AAPL", "MSFT", "GOOG", "AMZN", "NVDA", "META", "AVGO", "COST", "NFLX"],
+        "TSLL.US": ["TSLA"],
+        "NVDL.US": ["NVDA"],
+        "HIMS.US": ["HIMS"],
+    }
 
     # Greeks calculation
     risk_free_rate: float = 0.043
@@ -38,6 +49,9 @@ class Settings(BaseSettings):
     stop_loss_multiplier: float = 2.0
     delta_danger_threshold: float = 0.5
     dte_warn_days: int = 7
+
+    # News sync
+    news_sync_interval_minutes: int = 30
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

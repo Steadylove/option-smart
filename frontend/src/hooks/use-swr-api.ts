@@ -3,9 +3,12 @@ import { api } from '@/lib/api';
 import type {
   AlertsResponse,
   DashboardResponse,
+  EventTimelineResponse,
+  MarketNewsResponse,
   OptionChainWithGreeks,
   PositionAnalysisResponse,
   PositionOut,
+  UpcomingEventsResponse,
 } from '@/lib/api';
 
 // Backend already caches stock quotes for 10s — no need to refresh faster
@@ -63,4 +66,42 @@ export function useAlerts() {
     dedupingInterval: 30_000,
     revalidateOnFocus: false,
   });
+}
+
+const EVENT_REFRESH = 300_000; // 5 min
+
+export function useUpcomingEvents(days = 14) {
+  return useSWR<UpcomingEventsResponse>(
+    `events-upcoming-${days}`,
+    () => api.getUpcomingEvents(days),
+    {
+      refreshInterval: EVENT_REFRESH,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
+}
+
+export function useEventTimeline(daysBack = 7, daysAhead = 14) {
+  return useSWR<EventTimelineResponse>(
+    `events-timeline-${daysBack}-${daysAhead}`,
+    () => api.getEventTimeline(daysBack, daysAhead),
+    {
+      refreshInterval: EVENT_REFRESH,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
+}
+
+export function useMarketNews(symbol = '', days = 7) {
+  return useSWR<MarketNewsResponse>(
+    `events-news-${symbol}-${days}`,
+    () => api.getMarketNews(symbol, days),
+    {
+      refreshInterval: EVENT_REFRESH,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
 }

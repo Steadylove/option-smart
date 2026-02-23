@@ -215,7 +215,7 @@ export default function PositionsPage() {
                           <td className="px-4 py-3">
                             <p className="font-medium">
                               {p.symbol.replace('.US', '')} ${p.strike}{' '}
-                              {p.option_type.toUpperCase()}
+                              {p.option_type?.toUpperCase()}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
                               {p.direction.toUpperCase()} · {p.quantity} contract

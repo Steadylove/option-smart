@@ -64,6 +64,27 @@ export const api = {
   getAlerts: () => request<AlertsResponse>('/api/alerts'),
   getSnapshots: (positionId: number, limit = 30) =>
     request<SnapshotOut[]>(`/api/alerts/snapshots/${positionId}?limit=${limit}`),
+
+  // Events
+  getUpcomingEvents: (days = 14) =>
+    request<UpcomingEventsResponse>(`/api/events/upcoming?days=${days}`),
+  getEventTimeline: (daysBack = 7, daysAhead = 14) =>
+    request<EventTimelineResponse>(
+      `/api/events/timeline?days_back=${daysBack}&days_ahead=${daysAhead}`,
+    ),
+  getMarketNews: (symbol = '', days = 7) =>
+    request<MarketNewsResponse>(
+      `/api/events/news?symbol=${encodeURIComponent(symbol)}&days=${days}`,
+    ),
+  getPriceAttribution: (symbol: string, date?: string) =>
+    request<PriceAttributionResponse>(
+      `/api/events/attribution?symbol=${encodeURIComponent(symbol)}${date ? `&date=${date}` : ''}`,
+    ),
+  analyzeEvents: () =>
+    fetch(`${API_BASE}/api/events/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }),
 };
 
 // Re-export types matching backend schemas
@@ -366,4 +387,55 @@ export interface SnapshotOut {
   health_score: number;
   health_level: string;
   events: string | null;
+}
+
+// ── Market event types ────────────────────────────────
+
+export interface MarketEvent {
+  type: string;
+  symbol: string | null;
+  date: string;
+  title: string;
+  description: string | null;
+  impact: string;
+  eps_estimate?: number | null;
+  eps_actual?: number | null;
+  revenue_estimate?: number | null;
+  actual?: string | null;
+  forecast?: string | null;
+  previous?: string | null;
+}
+
+export interface MarketNewsItem {
+  symbol: string | null;
+  headline: string;
+  summary: string | null;
+  source: string | null;
+  published_at: string;
+  url: string | null;
+  relevance?: string | null;
+}
+
+export interface UpcomingEventsResponse {
+  events: MarketEvent[];
+  total: number;
+}
+
+export interface MarketNewsResponse {
+  news: MarketNewsItem[];
+  total: number;
+}
+
+export interface PriceAttributionResponse {
+  symbol: string;
+  date: string;
+  price_change: number | null;
+  price_change_pct: number | null;
+  attributions: MarketNewsItem[];
+}
+
+export interface EventTimelineResponse {
+  upcoming_events: MarketEvent[];
+  recent_news: MarketNewsItem[];
+  range: { from: string; to: string };
 }

@@ -370,3 +370,55 @@ class SnapshotOut(BaseModel):
     events: str | None
 
     model_config = {"from_attributes": True}
+
+
+# ── Market event schemas ──────────────────────────────
+
+
+class MarketEventOut(BaseModel):
+    type: str
+    symbol: str | None
+    date: str
+    title: str
+    description: str | None
+    impact: str
+    eps_estimate: float | None = None
+    eps_actual: float | None = None
+    revenue_estimate: float | None = None
+    actual: str | None = None
+    forecast: str | None = None
+    previous: str | None = None
+
+
+class MarketNewsOut(BaseModel):
+    symbol: str | None
+    headline: str
+    summary: str | None
+    source: str | None
+    published_at: str
+    url: str | None
+    relevance: str | None = None
+
+
+class UpcomingEventsResponse(BaseModel):
+    events: list[MarketEventOut]
+    total: int
+
+
+class MarketNewsResponse(BaseModel):
+    news: list[MarketNewsOut]
+    total: int
+
+
+class PriceAttributionResponse(BaseModel):
+    symbol: str
+    date: str
+    price_change: float | None
+    price_change_pct: float | None
+    attributions: list[MarketNewsOut]
+
+
+class EventTimelineResponse(BaseModel):
+    upcoming_events: list[MarketEventOut]
+    recent_news: list[MarketNewsOut]
+    range: dict[str, str]

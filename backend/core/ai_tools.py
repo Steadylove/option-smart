@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import date, timedelta
 
 from backend.core.alert_engine import evaluate_portfolio
 from backend.core.position_analyzer import build_portfolio_summary
@@ -146,6 +147,122 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_market_news",
+            "description": (
+                "搜索某个标的的最近新闻。支持杠杆 ETF 自动映射到底层资产"
+                "（如 TQQQ→QQQ/AAPL/MSFT 等，TSLL→TSLA，NVDL→NVDA）。"
+                "用于分析市场情绪、寻找价格变动原因。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "标的代码，如 TQQQ.US、NVDA、TSLA",
+                    },
+                    "days_back": {
+                        "type": "integer",
+                        "description": "回看天数，默认 7 天",
+                    },
+                },
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_upcoming_events",
+            "description": (
+                "获取未来 N 天的重要市场事件，包括相关标的的财报日期、"
+                "FOMC 会议、CPI 数据发布、GDP、非农就业等。"
+                "用于评估事件风险窗口期。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_ahead": {
+                        "type": "integer",
+                        "description": "展望天数，默认 14 天",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_economic_calendar",
+            "description": (
+                "获取未来 N 天的经济事件日历（FOMC、CPI、GDP、非农等），"
+                "包括预测值和前值。用于评估宏观风险对大盘（TQQQ）的影响。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_ahead": {
+                        "type": "integer",
+                        "description": "展望天数，默认 30 天",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_price_change",
+            "description": (
+                "分析某个标的在某天的价格变动原因。回溯该日的新闻和经济事件，"
+                "给出可能的归因分析。用于回答'为什么涨/跌'类问题。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "标的代码，如 TQQQ.US、NVDA",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "日期，格式 YYYY-MM-DD。不填则为今天。",
+                    },
+                },
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "assess_event_impact",
+            "description": (
+                "评估某类事件（财报、FOMC、CPI 等）对持仓的潜在影响。"
+                "返回事件前后的策略建议、受影响的希腊值、风险等级。"
+                "用于在给出持仓建议时补充事件风险分析。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_type": {
+                        "type": "string",
+                        "enum": ["earnings", "fomc", "cpi", "gdp", "jobs"],
+                        "description": "事件类型",
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "相关标的代码（可选）",
+                    },
+                },
+                "required": ["event_type"],
+            },
+        },
+    },
 ]
 
 
@@ -191,6 +308,21 @@ async def _dispatch(
 
     if name == "get_alerts":
         return _tool_alerts(diagnoses)
+
+    if name == "search_market_news":
+        return await _tool_search_news(args["symbol"], args.get("days_back", 7))
+
+    if name == "get_upcoming_events":
+        return await _tool_upcoming_events(args.get("days_ahead", 14))
+
+    if name == "get_economic_calendar":
+        return await _tool_economic_calendar(args.get("days_ahead", 30))
+
+    if name == "analyze_price_change":
+        return await _tool_analyze_price_change(args["symbol"], args.get("date"))
+
+    if name == "assess_event_impact":
+        return await _tool_assess_event_impact(args["event_type"], args.get("symbol"))
 
     return {"error": f"未知工具: {name}"}
 
@@ -323,3 +455,75 @@ def _tool_alerts(diagnoses: list[PositionDiagnosis]) -> dict:
         "total": len(alerts),
         "alerts": [a.to_dict() for a in alerts],
     }
+
+
+async def _tool_search_news(symbol: str, days_back: int = 7) -> dict:
+    from sqlalchemy import select
+
+    from backend.models.database import async_session
+    from backend.models.market_event import MarketNews
+    from backend.services.finnhub import resolve_underlyings
+
+    underlyings = resolve_underlyings(symbol)
+    cutoff = (date.today() - timedelta(days=days_back)).isoformat()
+
+    async with async_session() as session:
+        stmt = (
+            select(MarketNews)
+            .where(
+                MarketNews.symbol.in_(underlyings),
+                MarketNews.published_at >= cutoff,
+            )
+            .order_by(MarketNews.published_at.desc())
+            .limit(20)
+        )
+        result = await session.execute(stmt)
+        rows = result.scalars().all()
+
+    news_list = [
+        {
+            "symbol": r.symbol,
+            "headline": r.headline,
+            "summary": (r.summary or "")[:200],
+            "source": r.source or "",
+            "published_at": r.published_at,
+        }
+        for r in rows
+    ]
+    return {"symbol": symbol, "news": news_list, "total": len(news_list)}
+
+
+async def _tool_upcoming_events(days_ahead: int = 14) -> dict:
+    from backend.core.event_analyzer import get_upcoming_events
+
+    events = await get_upcoming_events(days_ahead=days_ahead)
+    return {"events": events, "total": len(events)}
+
+
+async def _tool_economic_calendar(days_ahead: int = 30) -> dict:
+    from backend.core.event_analyzer import _KNOWN_ECONOMIC_EVENTS_2026
+
+    today = date.today()
+    end = today + timedelta(days=days_ahead)
+    today_str, end_str = str(today), str(end)
+
+    events = [
+        {"event": e["title"], "date": e["date"], "impact": e["impact"], "type": e["type"]}
+        for e in _KNOWN_ECONOMIC_EVENTS_2026
+        if today_str <= e["date"] <= end_str
+    ]
+
+    return {"events": events, "total": len(events)}
+
+
+async def _tool_analyze_price_change(symbol: str, target_date: str | None = None) -> dict:
+    from backend.core.event_analyzer import attribute_price_move
+
+    d = date.fromisoformat(target_date) if target_date else date.today()
+    return await attribute_price_move(symbol, d)
+
+
+async def _tool_assess_event_impact(event_type: str, symbol: str | None = None) -> dict:
+    from backend.core.event_analyzer import assess_event_impact
+
+    return await assess_event_impact(event_type, symbol)
