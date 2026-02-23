@@ -7,12 +7,14 @@ stay well within Longbridge rate limits.
 import logging
 import time
 from datetime import date
+from decimal import Decimal
 from functools import wraps
 from threading import Lock
 
-from longport.openapi import Config, QuoteContext, TradeContext
+from longport.openapi import Config, OrderSide, OrderType, QuoteContext, TradeContext
 
 from backend.config import settings
+from backend.core.market_hours import is_us_market_open
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +27,23 @@ _cache: dict[str, tuple[float, object]] = {}
 _cache_lock = Lock()
 _cache_stats: dict[str, int] = {"hit": 0, "miss": 0}
 
+_OFF_HOURS_TTL = 86400  # 24h — prices don't change when market is closed
 
-def _cached(ttl_seconds: int):
-    """Thread-safe TTL cache decorator. Cache key is derived from fn name + args."""
+
+def _cached(ttl_seconds: int, *, market_aware: bool = False):
+    """Thread-safe TTL cache decorator.
+
+    When market_aware=True, uses ttl_seconds during trading hours
+    and 24h outside trading hours to avoid unnecessary API calls.
+    """
 
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
+            effective_ttl = ttl_seconds
+            if market_aware and not is_us_market_open():
+                effective_ttl = _OFF_HOURS_TTL
+
             key = f"{fn.__name__}:{args}:{kwargs}"
             now = time.monotonic()
 
@@ -43,11 +55,16 @@ def _cached(ttl_seconds: int):
                         return value
 
             _cache_stats["miss"] += 1
-            logger.debug("Cache MISS: %s (ttl=%ds)", fn.__name__, ttl_seconds)
+            logger.debug(
+                "Cache MISS: %s (ttl=%ds, market_open=%s)",
+                fn.__name__,
+                effective_ttl,
+                is_us_market_open(),
+            )
             result = fn(*args, **kwargs)
 
             with _cache_lock:
-                _cache[key] = (now + ttl_seconds, result)
+                _cache[key] = (now + effective_ttl, result)
 
             return result
 
@@ -61,6 +78,19 @@ def clear_cache():
     with _cache_lock:
         _cache.clear()
     logger.info("Cache cleared")
+
+
+def clear_account_cache():
+    """Clear only account-related cache entries (balance + max qty)."""
+    with _cache_lock:
+        keys_to_remove = [
+            k
+            for k in _cache
+            if k.startswith("get_account_balance:") or k.startswith("get_max_purchase_quantity:")
+        ]
+        for k in keys_to_remove:
+            del _cache[k]
+    logger.info("Account cache cleared (%d entries)", len(keys_to_remove))
 
 
 def get_cache_stats() -> dict:
@@ -171,10 +201,72 @@ def get_account_positions() -> list[dict]:
     return positions
 
 
+# ── Account balance ───────────────────────────────────────
+
+
+@_cached(ttl_seconds=86400)
+def get_account_balance() -> dict:
+    """Fetch account balance: cash, buying power, margin info.
+    Cached for 24h — refreshed daily by scheduler + manual refresh.
+    """
+    ctx = get_trade_ctx()
+    resp = ctx.account_balance()
+
+    result: dict = {
+        "total_cash": "0",
+        "net_assets": "0",
+        "buy_power": "0",
+        "init_margin": "0",
+        "maintenance_margin": "0",
+        "risk_level": 0,
+        "currency": "USD",
+        "cash_infos": [],
+    }
+    for acct in resp:
+        result["total_cash"] = str(acct.total_cash)
+        result["net_assets"] = str(acct.net_assets)
+        result["buy_power"] = str(acct.buy_power)
+        result["init_margin"] = str(acct.init_margin)
+        result["maintenance_margin"] = str(acct.maintenance_margin)
+        result["risk_level"] = acct.risk_level
+        result["currency"] = str(acct.currency)
+        result["cash_infos"] = [
+            {
+                "currency": str(ci.currency),
+                "available": str(getattr(ci, "available_cash", "0")),
+                "frozen": str(getattr(ci, "frozen_cash", "0")),
+                "settling": str(getattr(ci, "settling_cash", "0")),
+            }
+            for ci in (acct.cash_infos or [])
+        ]
+    return result
+
+
+@_cached(ttl_seconds=3600, market_aware=True)
+def get_max_purchase_quantity(symbol: str, side: str, price: float | None = None) -> dict:
+    """Estimate max buy/sell quantity for a symbol. Cached 1h."""
+    ctx = get_trade_ctx()
+    order_side = OrderSide.Sell if side.lower() == "sell" else OrderSide.Buy
+
+    kwargs: dict = {
+        "symbol": symbol,
+        "order_type": OrderType.LO,
+        "side": order_side,
+    }
+    if price is not None:
+        kwargs["price"] = Decimal(str(price))
+
+    resp = ctx.estimate_max_purchase_quantity(**kwargs)
+    return {
+        "cash_max_qty": int(resp.cash_max_qty),
+        "margin_max_qty": int(resp.margin_max_qty),
+    }
+
+
 # ── Stock quotes ──────────────────────────────────────────
 
 
-@_cached(ttl_seconds=10)
+@_cached(ttl_seconds=10, market_aware=True)
 def get_stock_quotes(symbols: tuple[str, ...]) -> list[dict]:
     """Fetch real-time quotes for stock/ETF symbols.
 
@@ -240,7 +332,7 @@ def _resolve_direction(direction) -> str:
     return str(direction)
 
 
-@_cached(ttl_seconds=60)
+@_cached(ttl_seconds=60, market_aware=True)
 def get_option_quotes(symbols: tuple[str, ...]) -> list[dict]:
     """Fetch real-time option quotes with IV and OI.
 

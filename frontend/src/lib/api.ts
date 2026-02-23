@@ -85,6 +85,25 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     }),
+
+  // Option analysis (split: account-info is fast, analyze is slow)
+  optionAccountInfo: (data: OptionAnalyzeRequest) =>
+    request<AccountInfoResponse>('/api/quote/option/account-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  analyzeOption: (data: OptionAnalyzeRequest) =>
+    request<AiAnalysisResponse>('/api/quote/option/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  refreshAccount: () =>
+    request<{ ok: boolean; account: Record<string, unknown> }>(
+      '/api/quote/option/refresh-account',
+      { method: 'POST' },
+    ),
 };
 
 // Re-export types matching backend schemas
@@ -139,6 +158,7 @@ export interface SymbolOverview {
 export interface DashboardResponse {
   symbols: SymbolOverview[];
   updated_at: string;
+  market_open: boolean;
 }
 
 export interface OptionChainWithGreeks {
@@ -147,6 +167,30 @@ export interface OptionChainWithGreeks {
   spot_price: string;
   calls: OptionWithGreeks[];
   puts: OptionWithGreeks[];
+  market_open: boolean;
+}
+
+// ── Option analysis types ───────────────────────────────
+
+export interface OptionAnalyzeRequest {
+  option_symbol: string;
+  spot_price: number;
+  option_data: OptionWithGreeks;
+}
+
+export interface MaxQty {
+  cash_max_qty: number;
+  margin_max_qty: number;
+}
+
+export interface AccountInfoResponse {
+  account: Record<string, unknown>;
+  sell_qty: MaxQty;
+  buy_qty: MaxQty;
+}
+
+export interface AiAnalysisResponse {
+  analysis: string;
 }
 
 // ── Position types ──────────────────────────────────────

@@ -54,6 +54,8 @@
     "expiryErrorDetail": "API rate limit or network issue — will auto-retry",
     "chainError": "Failed to load option chain",
     "chainErrorDetail": "API rate limit exceeded — will auto-retry in 10s",
+    "live": "LIVE",
+    "delayed": "Closed",
     "calls": "Calls",
     "puts": "Puts",
     "strike": "Strike",
@@ -352,6 +354,26 @@
     "expiryDistribution": "Expiry Distribution",
     "noDatedPositions": "No dated positions",
     "multipleExpiring": "Multiple contracts expiring same week"
+  },
+  "optionAnalysis": {
+    "title": "Option Analysis",
+    "optionInfo": "Contract Info",
+    "accountInfo": "Account Overview",
+    "type": "Type",
+    "strike": "Strike",
+    "price": "Price",
+    "dte": "DTE",
+    "buyPower": "Buying Power",
+    "riskLevel": "Risk Level",
+    "sellQty": "Sell Qty (Cash/Margin)",
+    "buyQty": "Buy Qty (Cash/Margin)",
+    "initMargin": "Init Margin",
+    "maintMargin": "Maint Margin",
+    "loadingAccount": "Loading account info...",
+    "aiAnalysis": "AI Analysis",
+    "analyzing": "Robby is analyzing this option...",
+    "thinking": "Thinking...",
+    "followUpPlaceholder": "Ask Robby a follow-up..."
   },
   "errorBanner": {
     "retry": "Retry"

@@ -54,6 +54,8 @@
     "expiryErrorDetail": "API 限流或网络问题 — 将自动重试",
     "chainError": "加载期权链失败",
     "chainErrorDetail": "API 限流 — 将在 10 秒后自动重试",
+    "live": "实时",
+    "delayed": "非交易时段",
     "calls": "看涨",
     "puts": "看跌",
     "strike": "行权价",
@@ -352,6 +354,26 @@
     "expiryDistribution": "到期分布",
     "noDatedPositions": "无有到期日持仓",
     "multipleExpiring": "同一周有多张合约到期"
+  },
+  "optionAnalysis": {
+    "title": "期权分析",
+    "optionInfo": "合约信息",
+    "accountInfo": "账户概况",
+    "type": "类型",
+    "strike": "行权价",
+    "price": "最新价",
+    "dte": "剩余天数",
+    "buyPower": "购买力",
+    "riskLevel": "风险等级",
+    "sellQty": "可卖(现金/保证金)",
+    "buyQty": "可买(现金/保证金)",
+    "initMargin": "初始保证金",
+    "maintMargin": "维持保证金",
+    "loadingAccount": "加载账户信息...",
+    "aiAnalysis": "AI 分析",
+    "analyzing": "Robby 正在分析这张期权...",
+    "thinking": "思考中...",
+    "followUpPlaceholder": "追问 Robby..."
   },
   "errorBanner": {
     "retry": "重试"

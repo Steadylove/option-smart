@@ -20,6 +20,7 @@ interface OptionChainTableProps {
   puts: OptionWithGreeks[];
   spotPrice: number;
   viewMode: ViewMode;
+  onOptionClick?: (opt: OptionWithGreeks) => void;
 }
 
 function HeaderTip({ label, tip }: { label: string; tip: string }) {
@@ -76,12 +77,24 @@ function buildCells(opt: OptionWithGreeks) {
   ];
 }
 
-function OptionDataCells({ opt }: { opt: OptionWithGreeks }) {
+function OptionDataCells({
+  opt,
+  className,
+  onClick,
+}: {
+  opt: OptionWithGreeks;
+  className?: string;
+  onClick?: () => void;
+}) {
   const cells = buildCells(opt);
   return (
     <>
       {cells.map((c, i) => (
-        <TableCell key={i} className={cn('text-right font-mono text-xs', c.cls)}>
+        <TableCell
+          key={i}
+          className={cn('text-right font-mono text-xs', c.cls, className)}
+          onClick={onClick}
+        >
           {c.val}
         </TableCell>
       ))}
@@ -89,12 +102,24 @@ function OptionDataCells({ opt }: { opt: OptionWithGreeks }) {
   );
 }
 
-function OptionDataCellsReversed({ opt }: { opt: OptionWithGreeks }) {
+function OptionDataCellsReversed({
+  opt,
+  className,
+  onClick,
+}: {
+  opt: OptionWithGreeks;
+  className?: string;
+  onClick?: () => void;
+}) {
   const cells = buildCells(opt).reverse();
   return (
     <>
       {cells.map((c, i) => (
-        <TableCell key={i} className={cn('text-right font-mono text-xs', c.cls)}>
+        <TableCell
+          key={i}
+          className={cn('text-right font-mono text-xs', c.cls, className)}
+          onClick={onClick}
+        >
           {c.val}
         </TableCell>
       ))}
@@ -143,7 +168,12 @@ function StrikeCell({ strike, spotPrice }: { strike: number; spotPrice: number }
   );
 }
 
-function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMode'>) {
+function AllView({
+  calls,
+  puts,
+  spotPrice,
+  onOptionClick,
+}: Omit<OptionChainTableProps, 'viewMode'>) {
   const headers = useHeaders();
   const t = useTranslations('chain');
   const sorted = buildStrikeMap(calls, puts);
@@ -193,14 +223,31 @@ function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMo
         {sorted.map(([strike, { call, put }]) => {
           const s = parseFloat(strike);
           const isNearMoney = Math.abs(s - spotPrice) / spotPrice < 0.02;
+          const clickable = !!onOptionClick;
           return (
             <TableRow
               key={strike}
               className={cn('border-b border-border/50', isNearMoney && 'bg-primary/5')}
             >
-              {call ? <OptionDataCells opt={call} /> : <EmptyCells count={headers.length} />}
+              {call ? (
+                <OptionDataCells
+                  opt={call}
+                  className={clickable ? 'cursor-pointer hover:bg-accent/50' : undefined}
+                  onClick={clickable ? () => onOptionClick(call) : undefined}
+                />
+              ) : (
+                <EmptyCells count={headers.length} />
+              )}
               <StrikeCell strike={s} spotPrice={spotPrice} />
-              {put ? <OptionDataCellsReversed opt={put} /> : <EmptyCells count={headers.length} />}
+              {put ? (
+                <OptionDataCellsReversed
+                  opt={put}
+                  className={clickable ? 'cursor-pointer hover:bg-accent/50' : undefined}
+                  onClick={clickable ? () => onOptionClick(put) : undefined}
+                />
+              ) : (
+                <EmptyCells count={headers.length} />
+              )}
             </TableRow>
           );
         })}
@@ -213,10 +260,12 @@ function SingleSideView({
   options,
   spotPrice,
   side,
+  onOptionClick,
 }: {
   options: OptionWithGreeks[];
   spotPrice: number;
   side: 'call' | 'put';
+  onOptionClick?: (opt: OptionWithGreeks) => void;
 }) {
   const headers = useHeaders();
   const t = useTranslations('chain');
@@ -259,7 +308,9 @@ function SingleSideView({
                 'border-b border-border/50',
                 isNearMoney && 'bg-primary/5',
                 itm && 'bg-muted/30',
+                onOptionClick && 'cursor-pointer hover:bg-accent/50',
               )}
+              onClick={onOptionClick ? () => onOptionClick(opt) : undefined}
             >
               <StrikeCell strike={strike} spotPrice={spotPrice} />
               <TableCell className="text-center text-[10px]">
@@ -281,12 +332,32 @@ function SingleSideView({
   );
 }
 
-export function OptionChainTable({ calls, puts, spotPrice, viewMode }: OptionChainTableProps) {
+export function OptionChainTable({
+  calls,
+  puts,
+  spotPrice,
+  viewMode,
+  onOptionClick,
+}: OptionChainTableProps) {
   if (viewMode === 'calls') {
-    return <SingleSideView options={calls} spotPrice={spotPrice} side="call" />;
+    return (
+      <SingleSideView
+        options={calls}
+        spotPrice={spotPrice}
+        side="call"
+        onOptionClick={onOptionClick}
+      />
+    );
   }
   if (viewMode === 'puts') {
-    return <SingleSideView options={puts} spotPrice={spotPrice} side="put" />;
+    return (
+      <SingleSideView
+        options={puts}
+        spotPrice={spotPrice}
+        side="put"
+        onOptionClick={onOptionClick}
+      />
+    );
   }
-  return <AllView calls={calls} puts={puts} spotPrice={spotPrice} />;
+  return <AllView calls={calls} puts={puts} spotPrice={spotPrice} onOptionClick={onOptionClick} />;
 }

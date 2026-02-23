@@ -7,6 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from backend.services.longbridge import clear_account_cache, get_account_balance
 from backend.tasks.alert_scan import run_alert_scan
 from backend.tasks.daily_report import run_daily_report
 from backend.tasks.event_sync import run_sync_earnings, run_sync_news, sync_news
@@ -70,11 +71,30 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # Account balance refresh — daily at 09:30 ET (market open)
+    scheduler.add_job(
+        _refresh_account_balance,
+        trigger=CronTrigger(hour=9, minute=30, timezone="America/New_York"),
+        id="refresh_account",
+        name="Refresh account balance",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info("Scheduler started with %d jobs", len(scheduler.get_jobs()))
 
     # Fire bootstrap sync in background (backfills if DB empty)
     asyncio.get_event_loop().create_task(bootstrap_news_sync())
+
+
+async def _refresh_account_balance() -> None:
+    """Clear account cache and re-fetch, so the next request uses fresh data."""
+    try:
+        clear_account_cache()
+        get_account_balance()
+        logger.info("Account balance refreshed")
+    except Exception:
+        logger.exception("Account balance refresh failed")
 
 
 def stop_scheduler() -> None:

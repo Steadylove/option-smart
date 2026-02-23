@@ -12,6 +12,7 @@ from backend.core.greeks import (
     calc_pop,
     market_dte,
 )
+from backend.core.market_hours import is_us_market_open
 from backend.models.schemas import (
     DashboardResponse,
     Greeks,
@@ -53,6 +54,7 @@ async def dashboard():
     return DashboardResponse(
         symbols=symbols,
         updated_at=datetime.now().isoformat(),
+        market_open=is_us_market_open(),
     )
 
 
@@ -195,4 +197,5 @@ async def option_chain_with_greeks(
         spot_price=str(spot_price),
         calls=calls,
         puts=puts,
+        market_open=is_us_market_open(),
     )

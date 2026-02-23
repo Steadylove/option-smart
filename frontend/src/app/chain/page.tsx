@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useOptionExpiries, useOptionChain } from '@/hooks/use-swr-api';
 import { OptionChainTable } from '@/components/option-chain-table';
+import { OptionAnalysisDialog } from '@/components/option-analysis-dialog';
 import { ChainSkeleton } from '@/components/dashboard-skeleton';
 import { ErrorBanner } from '@/components/error-banner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Target, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { Target, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Circle } from 'lucide-react';
+import type { OptionWithGreeks } from '@/lib/api';
 
 const SYMBOLS = ['TQQQ', 'TSLL', 'NVDL'];
 
@@ -25,6 +27,7 @@ export default function ChainPage() {
   const [symbol, setSymbol] = useState(SYMBOLS[0]);
   const [expiry, setExpiry] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [selectedOption, setSelectedOption] = useState<OptionWithGreeks | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const t = useTranslations('chain');
@@ -148,6 +151,20 @@ export default function ChainPage() {
                 DTE {dte}
               </Badge>
             )}
+            <Badge
+              variant="outline"
+              className={cn(
+                'gap-1 text-[10px]',
+                chain.market_open
+                  ? 'border-emerald-500/30 text-emerald-400'
+                  : 'border-zinc-500/30 text-zinc-400',
+              )}
+            >
+              <Circle
+                className={cn('h-1.5 w-1.5 fill-current', chain.market_open && 'animate-pulse')}
+              />
+              {chain.market_open ? t('live') : t('delayed')}
+            </Badge>
           </div>
 
           <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
@@ -186,10 +203,18 @@ export default function ChainPage() {
               puts={chain.puts}
               spotPrice={parseFloat(chain.spot_price)}
               viewMode={viewMode}
+              onOptionClick={setSelectedOption}
             />
           </CardContent>
         </Card>
       )}
+
+      <OptionAnalysisDialog
+        option={selectedOption}
+        spotPrice={chain ? parseFloat(chain.spot_price) : 0}
+        symbol={`${symbol}.US`}
+        onClose={() => setSelectedOption(null)}
+      />
     </div>
   );
 }

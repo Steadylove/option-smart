@@ -252,6 +252,7 @@ class OptionChainWithGreeks(BaseModel):
     spot_price: str
     calls: list[OptionWithGreeks]
     puts: list[OptionWithGreeks]
+    market_open: bool = False
 
 
 class SymbolOverview(BaseModel):
@@ -264,6 +265,7 @@ class SymbolOverview(BaseModel):
 class DashboardResponse(BaseModel):
     symbols: list[SymbolOverview]
     updated_at: str
+    market_open: bool = False
 
 
 # ── Stress test schemas ─────────────────────────────────
