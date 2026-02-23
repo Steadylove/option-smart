@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { StressScenarioResult } from '@/lib/api';
@@ -28,7 +29,9 @@ function formatPnl(value: number) {
   return `${sign}$${value.toFixed(0)}`;
 }
 
-export function StressTestMatrix({ results, currentPnl }: StressTestMatrixProps) {
+export function StressTestMatrix({ results }: StressTestMatrixProps) {
+  const t = useTranslations('risk');
+
   if (results.length === 0) return null;
 
   const positions = results[0].positions;
@@ -39,7 +42,7 @@ export function StressTestMatrix({ results, currentPnl }: StressTestMatrixProps)
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-muted-foreground">
-            <th className="sticky left-0 z-10 bg-card px-4 py-3">Position</th>
+            <th className="sticky left-0 z-10 bg-card px-4 py-3">{t('thPosition')}</th>
             {results.map((r) => (
               <th key={r.scenario.name} className="min-w-[100px] px-3 py-3 text-center">
                 {r.scenario.name}
@@ -71,9 +74,10 @@ export function StressTestMatrix({ results, currentPnl }: StressTestMatrixProps)
             </tr>
           ))}
 
-          {/* Portfolio total row */}
           <tr className="border-t-2 border-border bg-muted/30 font-semibold">
-            <td className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-xs">Portfolio Total</td>
+            <td className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-xs">
+              {t('portfolioTotal')}
+            </td>
             {results.map((r) => {
               const change = r.portfolio_pnl_change;
               const intensity = maxAbsChange > 0 ? change / maxAbsChange : 0;
@@ -86,7 +90,7 @@ export function StressTestMatrix({ results, currentPnl }: StressTestMatrixProps)
                     {formatPnl(change)}
                   </span>
                   <p className={cn('mt-0.5 font-mono text-[10px]', pnlColor(r.portfolio_pnl))}>
-                    {formatPnl(r.portfolio_pnl)} total
+                    {formatPnl(r.portfolio_pnl)} {t('total')}
                   </p>
                 </td>
               );

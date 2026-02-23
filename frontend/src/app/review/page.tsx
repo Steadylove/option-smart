@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { format } from 'date-fns';
 import {
   FileBarChart,
@@ -48,6 +49,9 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const t = useTranslations('review');
+  const tc = useTranslations('common');
+
   const analyze = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -68,19 +72,16 @@ export default function ReviewPage() {
       <div className="border-b border-border px-6 py-4">
         <h1 className="flex items-center gap-2 text-lg font-semibold">
           <FileBarChart className="h-5 w-5" />
-          Price Attribution
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Analyze why prices moved — correlate with news and market events
-        </p>
+        <p className="text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="px-6 py-4">
-          {/* Query controls */}
           <div className="mb-6 flex items-end gap-4 rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Symbol</Label>
+              <Label className="text-xs">{t('symbol')}</Label>
               <Select value={symbol} onValueChange={setSymbol}>
                 <SelectTrigger className="w-44">
                   <SelectValue />
@@ -96,7 +97,7 @@ export default function ReviewPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Date</Label>
+              <Label className="text-xs">{t('date')}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="h-9 w-44 justify-start font-normal">
@@ -121,7 +122,7 @@ export default function ReviewPage() {
               ) : (
                 <Search className="h-4 w-4" />
               )}
-              Analyze
+              {tc('analyze')}
             </Button>
           </div>
 
@@ -148,9 +149,7 @@ export default function ReviewPage() {
           {!result && !loading && !error && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <FileBarChart className="mb-4 h-12 w-12 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                Select a symbol and date, then click Analyze to see price attribution
-              </p>
+              <p className="text-sm text-muted-foreground">{t('selectPrompt')}</p>
             </div>
           )}
         </div>
@@ -162,10 +161,10 @@ export default function ReviewPage() {
 function AttributionResult({ data }: { data: PriceAttributionResponse }) {
   const hasPrice = data.price_change != null;
   const isUp = (data.price_change ?? 0) >= 0;
+  const t = useTranslations('review');
 
   return (
     <div className="space-y-6">
-      {/* Price change summary */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -191,18 +190,17 @@ function AttributionResult({ data }: { data: PriceAttributionResponse }) {
                   {data.price_change_pct?.toFixed(2)}%)
                 </CardDescription>
               ) : (
-                <CardDescription>Price data not available for this date</CardDescription>
+                <CardDescription>{t('priceUnavailable')}</CardDescription>
               )}
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Attribution candidates */}
       <div>
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <Newspaper className="h-4 w-4 text-muted-foreground" />
-          Possible Reasons
+          {t('possibleReasons')}
           <Badge variant="secondary" className="text-[10px]">
             {data.attributions.length}
           </Badge>
@@ -211,7 +209,7 @@ function AttributionResult({ data }: { data: PriceAttributionResponse }) {
         {data.attributions.length === 0 ? (
           <Card className="py-8">
             <CardContent className="text-center text-sm text-muted-foreground">
-              No news or events found for this date
+              {t('noNewsEvents')}
             </CardContent>
           </Card>
         ) : (
@@ -228,6 +226,8 @@ function AttributionResult({ data }: { data: PriceAttributionResponse }) {
 
 function AttributionCard({ item, rank }: { item: MarketNewsItem; rank: number }) {
   const isEconomic = item.source === 'Economic Calendar';
+  const t = useTranslations('review');
+  const tc = useTranslations('common');
 
   return (
     <Card className="gap-2 py-3">
@@ -244,7 +244,7 @@ function AttributionCard({ item, rank }: { item: MarketNewsItem; rank: number })
                 <Newspaper className="h-3.5 w-3.5 text-blue-400" />
               )}
               <Badge variant="outline" className="text-[10px]">
-                {isEconomic ? 'Economic Event' : 'News'}
+                {isEconomic ? t('economicEvent') : t('news')}
               </Badge>
               {item.relevance && (
                 <Badge
@@ -275,7 +275,7 @@ function AttributionCard({ item, rank }: { item: MarketNewsItem; rank: number })
                   className="flex items-center gap-1 text-primary hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  Source
+                  {tc('source')}
                 </a>
               )}
             </div>
@@ -306,11 +306,11 @@ function formatRelativeTime(isoStr: string): string {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffMin < 60) return `${diffMin}m`;
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `${diffH}h ago`;
+    if (diffH < 24) return `${diffH}h`;
     const diffD = Math.floor(diffH / 24);
-    return `${diffD}d ago`;
+    return `${diffD}d`;
   } catch {
     return '';
   }

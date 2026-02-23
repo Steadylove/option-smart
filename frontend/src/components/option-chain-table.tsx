@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   Table,
   TableBody,
@@ -21,19 +22,6 @@ interface OptionChainTableProps {
   viewMode: ViewMode;
 }
 
-const HEADERS = [
-  { key: 'oi', label: 'OI', tip: 'Open Interest' },
-  { key: 'vol', label: 'Vol', tip: 'Volume' },
-  { key: 'price', label: 'Price', tip: 'Last traded price' },
-  { key: 'iv', label: 'IV', tip: 'Implied Volatility' },
-  { key: 'delta', label: 'Delta', tip: 'Price sensitivity' },
-  { key: 'gamma', label: 'Gamma', tip: 'Delta sensitivity' },
-  { key: 'theta', label: 'Theta', tip: 'Time decay per day' },
-  { key: 'vega', label: 'Vega', tip: 'Volatility sensitivity' },
-  { key: 'pop', label: 'POP', tip: 'Probability of Profit (seller)' },
-  { key: 'ann_ret', label: 'Ann.Ret', tip: 'Annualized Return on Margin' },
-];
-
 function HeaderTip({ label, tip }: { label: string; tip: string }) {
   return (
     <Tooltip>
@@ -45,6 +33,22 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
       <TooltipContent>{tip}</TooltipContent>
     </Tooltip>
   );
+}
+
+function useHeaders() {
+  const t = useTranslations('chainHeaders');
+  return [
+    { key: 'oi', label: t('oi'), tip: t('oiTip') },
+    { key: 'vol', label: t('vol'), tip: t('volTip') },
+    { key: 'price', label: t('price'), tip: t('priceTip') },
+    { key: 'iv', label: t('iv'), tip: t('ivTip') },
+    { key: 'delta', label: t('delta'), tip: t('deltaTip') },
+    { key: 'gamma', label: t('gamma'), tip: t('gammaTip') },
+    { key: 'theta', label: t('theta'), tip: t('thetaTip') },
+    { key: 'vega', label: t('vega'), tip: t('vegaTip') },
+    { key: 'pop', label: t('pop'), tip: t('popTip') },
+    { key: 'ann_ret', label: t('annRet'), tip: t('annRetTip') },
+  ];
 }
 
 function buildCells(opt: OptionWithGreeks) {
@@ -139,31 +143,32 @@ function StrikeCell({ strike, spotPrice }: { strike: number; spotPrice: number }
   );
 }
 
-/* ── All view: Calls | Strike | Puts ── */
 function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMode'>) {
+  const headers = useHeaders();
+  const t = useTranslations('chain');
   const sorted = buildStrikeMap(calls, puts);
-  const reversedHeaders = [...HEADERS].reverse();
+  const reversedHeaders = [...headers].reverse();
 
   return (
     <Table>
       <TableHeader>
         <TableRow className="border-b border-border hover:bg-transparent">
           <TableHead
-            colSpan={HEADERS.length}
+            colSpan={headers.length}
             className="h-8 text-center text-[11px] font-bold text-chart-2"
           >
-            CALLS
+            {t('headerCalls')}
           </TableHead>
           <TableHead className="h-8 bg-muted" />
           <TableHead
-            colSpan={HEADERS.length}
+            colSpan={headers.length}
             className="h-8 text-center text-[11px] font-bold text-destructive"
           >
-            PUTS
+            {t('headerPuts')}
           </TableHead>
         </TableRow>
         <TableRow className="border-b border-border hover:bg-transparent">
-          {HEADERS.map((h) => (
+          {headers.map((h) => (
             <TableHead
               key={`c-${h.key}`}
               className="h-8 text-right text-[10px] font-medium text-muted-foreground"
@@ -172,7 +177,7 @@ function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMo
             </TableHead>
           ))}
           <TableHead className="h-8 bg-muted text-center text-[10px] font-bold text-foreground">
-            Strike
+            {t('strike')}
           </TableHead>
           {reversedHeaders.map((h) => (
             <TableHead
@@ -193,9 +198,9 @@ function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMo
               key={strike}
               className={cn('border-b border-border/50', isNearMoney && 'bg-primary/5')}
             >
-              {call ? <OptionDataCells opt={call} /> : <EmptyCells count={HEADERS.length} />}
+              {call ? <OptionDataCells opt={call} /> : <EmptyCells count={headers.length} />}
               <StrikeCell strike={s} spotPrice={spotPrice} />
-              {put ? <OptionDataCellsReversed opt={put} /> : <EmptyCells count={HEADERS.length} />}
+              {put ? <OptionDataCellsReversed opt={put} /> : <EmptyCells count={headers.length} />}
             </TableRow>
           );
         })}
@@ -204,7 +209,6 @@ function AllView({ calls, puts, spotPrice }: Omit<OptionChainTableProps, 'viewMo
   );
 }
 
-/* ── Single side view: Strike + data ── */
 function SingleSideView({
   options,
   spotPrice,
@@ -214,6 +218,8 @@ function SingleSideView({
   spotPrice: number;
   side: 'call' | 'put';
 }) {
+  const headers = useHeaders();
+  const t = useTranslations('chain');
   const sorted = [...options].sort(
     (a, b) => parseFloat(a.quote.strike_price ?? '0') - parseFloat(b.quote.strike_price ?? '0'),
   );
@@ -225,12 +231,12 @@ function SingleSideView({
       <TableHeader>
         <TableRow className="border-b border-border hover:bg-transparent">
           <TableHead className="h-8 bg-muted text-center text-[10px] font-bold text-foreground">
-            Strike
+            {t('strike')}
           </TableHead>
           <TableHead className="h-8 text-center text-[10px] font-bold text-muted-foreground">
-            ITM/OTM
+            {t('itmOtm')}
           </TableHead>
-          {HEADERS.map((h) => (
+          {headers.map((h) => (
             <TableHead
               key={h.key}
               className="h-8 text-right text-[10px] font-medium text-muted-foreground"
@@ -263,7 +269,7 @@ function SingleSideView({
                     itm ? 'bg-chart-2/10 text-chart-2' : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {itm ? 'ITM' : 'OTM'}
+                  {itm ? t('itm') : t('otm')}
                 </span>
               </TableCell>
               <OptionDataCells opt={opt} />

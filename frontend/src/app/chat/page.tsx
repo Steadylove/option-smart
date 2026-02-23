@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Markdown from 'react-markdown';
 import { Send, User, Loader2, Plus, Wrench, MessageSquare, Trash2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,21 +19,14 @@ import {
 } from '@/lib/chat-store';
 import type { Conversation, DisplayMessage } from '@/lib/chat-store';
 
-const SUGGESTIONS = [
-  '分析一下我的持仓整体风险',
-  '哪些持仓需要优先处理？',
-  '如果 TQQQ 下跌 10%，我会亏多少？',
-  '当前适合卖 Put 吗？',
-];
-
-const TOOL_LABELS: Record<string, string> = {
-  get_portfolio_overview: 'Portfolio Overview',
-  get_position_list: 'Position List',
-  get_position_detail: 'Position Detail',
-  get_stock_quote: 'Stock Quote',
-  run_stress_test: 'Stress Test',
-  get_decision_matrix: 'Decision Matrix',
-  get_alerts: 'Alerts',
+const TOOL_LABEL_KEYS: Record<string, string> = {
+  get_portfolio_overview: 'portfolioOverview',
+  get_position_list: 'positionList',
+  get_position_detail: 'positionDetail',
+  get_stock_quote: 'stockQuote',
+  run_stress_test: 'stressTest',
+  get_decision_matrix: 'decisionMatrix',
+  get_alerts: 'alerts',
 };
 
 export default function ChatPage() {
@@ -44,7 +38,8 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load conversations from localStorage on mount
+  const t = useTranslations('chat');
+
   useEffect(() => {
     const stored = loadConversations();
     setConversations(stored);
@@ -126,7 +121,6 @@ export default function ChatPage() {
       setInput('');
       setIsStreaming(true);
 
-      // Build context with compression for large conversations
       const allCompleted = [...messages, userMsg];
       const contextMessages = buildContextMessages(allCompleted);
 
@@ -189,7 +183,6 @@ export default function ChatPage() {
           }
         }
 
-        // Finalize
         setMessages((prev) => {
           const final = prev.map((m) => (m.loading ? { ...m, loading: false } : m));
           updateConversation(currentId!, final);
@@ -204,7 +197,7 @@ export default function ChatPage() {
           if (last.role === 'assistant') {
             updated[updated.length - 1] = {
               ...last,
-              content: 'AI 服务连接失败，请检查后端是否运行，或稍后重试。',
+              content: t('connectionError'),
               loading: false,
             };
           }
@@ -216,7 +209,7 @@ export default function ChatPage() {
         setIsStreaming(false);
       }
     },
-    [activeId, isStreaming, messages, refreshConversations],
+    [activeId, isStreaming, messages, refreshConversations, t],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -226,12 +219,18 @@ export default function ChatPage() {
     }
   };
 
+  const suggestions = [
+    t('suggestions.analyzeRisk'),
+    t('suggestions.priorityPositions'),
+    t('suggestions.tqqqDrop'),
+    t('suggestions.sellPut'),
+  ];
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {/* Sidebar — conversation history */}
       <div className="flex w-64 shrink-0 flex-col border-r border-border">
         <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-sm font-semibold">Chats</span>
+          <span className="text-sm font-semibold">{t('chats')}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNewChat}>
             <Plus className="h-4 w-4" />
           </Button>
@@ -241,7 +240,7 @@ export default function ChatPage() {
           <div className="space-y-0.5 p-2">
             {conversations.length === 0 ? (
               <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                No conversations yet
+                {t('noConversations')}
               </p>
             ) : (
               conversations.map((conv) => (
@@ -259,7 +258,7 @@ export default function ChatPage() {
                     <p className="truncate text-sm leading-tight">{conv.title}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-[10px] opacity-60">
                       <Clock className="h-2.5 w-2.5" />
-                      {formatTime(conv.updatedAt)}
+                      <FormatTime ts={conv.updatedAt} />
                     </p>
                   </div>
                   <button
@@ -275,12 +274,10 @@ export default function ChatPage() {
         </ScrollArea>
       </div>
 
-      {/* Main chat area */}
       <div className="flex flex-1 flex-col">
-        {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto py-6">
           {messages.length === 0 ? (
-            <EmptyState onSuggestion={sendMessage} />
+            <EmptyState suggestions={suggestions} onSuggestion={sendMessage} />
           ) : (
             <div className="mx-auto max-w-3xl space-y-6 px-4">
               {messages.map((msg, idx) => (
@@ -290,7 +287,6 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input */}
         <div className="border-t border-border px-4 pt-4 pb-2">
           <div className="mx-auto max-w-3xl">
             <div className="relative flex items-end gap-2">
@@ -299,7 +295,7 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Robby about your portfolio..."
+                placeholder={t('placeholder')}
                 rows={1}
                 disabled={isStreaming}
                 className="w-full resize-none rounded-lg border border-border bg-background px-4 py-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring disabled:opacity-50"
@@ -323,9 +319,7 @@ export default function ChatPage() {
                 )}
               </Button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              Robby is powered by GLM-4 Plus with real-time portfolio data
-            </p>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">{t('poweredBy')}</p>
           </div>
         </div>
       </div>
@@ -333,20 +327,22 @@ export default function ChatPage() {
   );
 }
 
-// ── Sub-components ─────────────────────────────────────
+function EmptyState({
+  suggestions,
+  onSuggestion,
+}: {
+  suggestions: string[];
+  onSuggestion: (text: string) => void;
+}) {
+  const t = useTranslations('chat');
 
-function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center px-4 pt-12">
       <Image src="/Robby.jpg" alt="Robby" width={80} height={80} className="rounded-2xl" />
-      <h2 className="mt-4 text-lg font-semibold">Hi, I&apos;m Robby</h2>
-      <p className="mt-1 text-center text-sm text-muted-foreground">
-        Your option selling strategy advisor. I can analyze your portfolio,
-        <br />
-        diagnose positions, run stress tests, and suggest actions.
-      </p>
+      <h2 className="mt-4 text-lg font-semibold">{t('greeting')}</h2>
+      <p className="mt-1 text-center text-sm text-muted-foreground">{t('greetingDesc')}</p>
       <div className="mt-8 grid w-full grid-cols-2 gap-3">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <Card
             key={s}
             className="cursor-pointer border-border p-4 transition-colors hover:bg-accent"
@@ -365,6 +361,7 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
 
 function MessageBubble({ message }: { message: DisplayMessage }) {
   const isUser = message.role === 'user';
+  const t = useTranslations('chat');
 
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : ''}`}>
@@ -381,13 +378,13 @@ function MessageBubble({ message }: { message: DisplayMessage }) {
       <div className={`max-w-[85%] space-y-2 ${isUser ? 'order-first' : ''}`}>
         {message.tools && message.tools.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {message.tools.map((t, i) => (
+            {message.tools.map((tool, i) => (
               <span
                 key={i}
                 className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
               >
                 <Wrench className="h-3 w-3" />
-                {TOOL_LABELS[t] || t}
+                {TOOL_LABEL_KEYS[tool] ? t(`tools.${TOOL_LABEL_KEYS[tool]}`) : tool}
               </span>
             ))}
           </div>
@@ -401,7 +398,7 @@ function MessageBubble({ message }: { message: DisplayMessage }) {
           {message.loading ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Robby is thinking...</span>
+              <span>{t('thinking')}</span>
             </div>
           ) : isUser ? (
             <div className="whitespace-pre-wrap">{message.content}</div>
@@ -447,20 +444,21 @@ function MessageBubble({ message }: { message: DisplayMessage }) {
   );
 }
 
-function formatTime(ts: number): string {
+function FormatTime({ ts }: { ts: number }) {
+  const tc = useTranslations('common');
   const d = new Date(ts);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return <>{tc('justNow')}</>;
+  if (diffMin < 60) return <>{tc('minutesAgo', { minutes: diffMin })}</>;
 
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return <>{tc('hoursAgo', { hours: diffHr })}</>;
 
   const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
+  if (diffDay < 7) return <>{tc('daysAgo', { days: diffDay })}</>;
 
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return <>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>;
 }

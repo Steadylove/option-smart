@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ShieldAlert, Loader2, Zap, BarChart3, Clock, Skull } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,25 +13,26 @@ import { api, type StressTestResponse, type StressTestRequest } from '@/lib/api'
 
 type Mode = StressTestRequest['mode'];
 
-const MODE_CONFIG: { mode: Mode; label: string; icon: typeof Zap; desc: string }[] = [
-  { mode: 'price', label: 'Price Shock', icon: Zap, desc: 'Spot price ±3% to ±20%' },
-  { mode: 'iv', label: 'IV Shock', icon: BarChart3, desc: 'Volatility -30% to +100%' },
-  { mode: 'time', label: 'Time Decay', icon: Clock, desc: 'T+7 / T+14 / T+30' },
-  { mode: 'composite', label: 'Worst Case', icon: Skull, desc: 'Combined crash scenarios' },
-];
-
 export default function RiskPage() {
   const [activeMode, setActiveMode] = useState<Mode>('price');
   const [data, setData] = useState<StressTestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Custom what-if state
   const [pricePct, setPricePct] = useState(0);
   const [ivPct, setIvPct] = useState(0);
   const [daysFwd, setDaysFwd] = useState(0);
   const [customData, setCustomData] = useState<StressTestResponse | null>(null);
   const [customLoading, setCustomLoading] = useState(false);
+
+  const t = useTranslations('risk');
+
+  const modeConfig: { mode: Mode; label: string; icon: typeof Zap; desc: string }[] = [
+    { mode: 'price', label: t('priceShock'), icon: Zap, desc: t('priceShockDesc') },
+    { mode: 'iv', label: t('ivShock'), icon: BarChart3, desc: t('ivShockDesc') },
+    { mode: 'time', label: t('timeDecay'), icon: Clock, desc: t('timeDecayDesc') },
+    { mode: 'composite', label: t('worstCase'), icon: Skull, desc: t('worstCaseDesc') },
+  ];
 
   async function runPreset(mode: Mode) {
     setActiveMode(mode);
@@ -71,33 +73,29 @@ export default function RiskPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10">
             <ShieldAlert className="h-5 w-5 text-orange-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Stress Test</h1>
-            <p className="text-sm text-muted-foreground">
-              Simulate market scenarios to understand worst-case portfolio impact
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('description')}</p>
           </div>
         </div>
       </div>
 
-      {error && <ErrorBanner message="Stress test failed" detail={error} />}
+      {error && <ErrorBanner message={t('failed')} detail={error} />}
 
       <Tabs defaultValue="presets" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="presets">Preset Scenarios</TabsTrigger>
-          <TabsTrigger value="custom">Custom What-If</TabsTrigger>
+          <TabsTrigger value="presets">{t('presetScenarios')}</TabsTrigger>
+          <TabsTrigger value="custom">{t('customWhatIf')}</TabsTrigger>
         </TabsList>
 
-        {/* Preset scenarios */}
         <TabsContent value="presets" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {MODE_CONFIG.map(({ mode, label, icon: Icon, desc }) => (
+            {modeConfig.map(({ mode, label, icon: Icon, desc }) => (
               <button
                 key={mode}
                 onClick={() => runPreset(mode)}
@@ -128,17 +126,16 @@ export default function RiskPage() {
 
           {data && !loading && (
             <div className="space-y-4">
-              {/* Summary cards */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <SummaryCard
-                  label="Current P&L"
+                <PnlCard
+                  label={t('currentPnl')}
                   value={data.current_portfolio_pnl}
-                  desc="All open positions"
+                  desc={t('allOpenPositions')}
                 />
                 {data.results.length > 0 && (
                   <>
-                    <SummaryCard
-                      label="Best Case"
+                    <PnlCard
+                      label={t('bestCase')}
                       value={Math.max(...data.results.map((r) => r.portfolio_pnl_change))}
                       desc={
                         data.results.reduce((a, b) =>
@@ -146,8 +143,8 @@ export default function RiskPage() {
                         ).scenario.name
                       }
                     />
-                    <SummaryCard
-                      label="Worst Case"
+                    <PnlCard
+                      label={t('worstCaseLabel')}
                       value={Math.min(...data.results.map((r) => r.portfolio_pnl_change))}
                       desc={
                         data.results.reduce((a, b) =>
@@ -155,22 +152,21 @@ export default function RiskPage() {
                         ).scenario.name
                       }
                     />
-                    <SummaryCard
-                      label="Max Drawdown"
+                    <PnlCard
+                      label={t('maxDrawdown')}
                       value={
                         Math.min(...data.results.map((r) => r.portfolio_pnl)) -
                         data.current_portfolio_pnl
                       }
-                      desc="From current level"
+                      desc={t('fromCurrentLevel')}
                     />
                   </>
                 )}
               </div>
 
-              {/* Matrix */}
               <div>
                 <h2 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">
-                  P&L Impact Matrix (change from current)
+                  {t('pnlMatrix')}
                 </h2>
                 <StressTestMatrix results={data.results} currentPnl={data.current_portfolio_pnl} />
               </div>
@@ -182,23 +178,20 @@ export default function RiskPage() {
               <CardContent className="flex flex-col items-center py-16 text-center">
                 <ShieldAlert className="h-12 w-12 text-muted-foreground/50" />
                 <p className="mt-4 text-sm font-medium text-muted-foreground">
-                  Select a scenario type above to run stress tests
+                  {t('selectScenario')}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Stress tests reprice all open positions under hypothetical market conditions
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('scenarioExplain')}</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        {/* Custom what-if */}
         <TabsContent value="custom" className="space-y-4">
           <Card className="border-border">
             <CardContent className="space-y-6 p-6">
               <div className="grid gap-6 md:grid-cols-3">
                 <SliderInput
-                  label="Spot Price Change"
+                  label={t('spotPriceChange')}
                   value={pricePct}
                   onChange={setPricePct}
                   min={-30}
@@ -207,7 +200,7 @@ export default function RiskPage() {
                   format={(v) => `${v >= 0 ? '+' : ''}${v}%`}
                 />
                 <SliderInput
-                  label="IV Change"
+                  label={t('ivChange')}
                   value={ivPct}
                   onChange={setIvPct}
                   min={-50}
@@ -216,7 +209,7 @@ export default function RiskPage() {
                   format={(v) => `${v >= 0 ? '+' : ''}${v}%`}
                 />
                 <SliderInput
-                  label="Days Forward"
+                  label={t('daysForward')}
                   value={daysFwd}
                   onChange={setDaysFwd}
                   min={0}
@@ -232,7 +225,7 @@ export default function RiskPage() {
                 ) : (
                   <Zap className="mr-2 h-4 w-4" />
                 )}
-                Run Scenario
+                {t('runScenario')}
               </Button>
             </CardContent>
           </Card>
@@ -240,34 +233,33 @@ export default function RiskPage() {
           {customData && !customLoading && customData.results.length > 0 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <SummaryCard
-                  label="Current P&L"
+                <PnlCard
+                  label={t('currentPnl')}
                   value={customData.current_portfolio_pnl}
-                  desc="Before scenario"
+                  desc={t('beforeScenario')}
                 />
-                <SummaryCard
-                  label="Scenario P&L"
+                <PnlCard
+                  label={t('scenarioPnl')}
                   value={customData.results[0].portfolio_pnl}
-                  desc="After scenario"
+                  desc={t('afterScenario')}
                 />
-                <SummaryCard
-                  label="P&L Change"
+                <PnlCard
+                  label={t('pnlChange')}
                   value={customData.results[0].portfolio_pnl_change}
                   desc={customData.results[0].scenario.name}
                 />
               </div>
 
-              {/* Position detail table */}
               <Card className="overflow-hidden border-border p-0">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                      <th className="px-4 py-3">Position</th>
-                      <th className="px-4 py-3 text-right">Current P&L</th>
-                      <th className="px-4 py-3 text-right">Scenario P&L</th>
-                      <th className="px-4 py-3 text-right">Change</th>
-                      <th className="px-4 py-3 text-right">New Price</th>
-                      <th className="px-4 py-3 text-right">New Delta</th>
+                      <th className="px-4 py-3">{t('thPosition')}</th>
+                      <th className="px-4 py-3 text-right">{t('thCurrentPnl')}</th>
+                      <th className="px-4 py-3 text-right">{t('thScenarioPnl')}</th>
+                      <th className="px-4 py-3 text-right">{t('thChange')}</th>
+                      <th className="px-4 py-3 text-right">{t('thNewPrice')}</th>
+                      <th className="px-4 py-3 text-right">{t('thNewDelta')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -310,7 +302,7 @@ export default function RiskPage() {
   );
 }
 
-function SummaryCard({ label, value, desc }: { label: string; value: number; desc: string }) {
+function PnlCard({ label, value, desc }: { label: string; value: number; desc: string }) {
   return (
     <Card className="border-border">
       <CardContent className="p-4">

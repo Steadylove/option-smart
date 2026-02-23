@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Trash2,
   ChevronDown,
@@ -79,6 +80,9 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
   const [decisions, setDecisions] = useState<DecisionMatrixResponse | null>(null);
   const [decisionsLoading, setDecisionsLoading] = useState(false);
 
+  const t = useTranslations('positionTable');
+  const tc = useTranslations('common');
+
   async function handleDelete() {
     if (deleteId === null) return;
     setLoading(true);
@@ -119,9 +123,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
       <Card className="border-border">
         <CardContent className="flex flex-col items-center py-12 text-center">
           <Clock className="h-10 w-10 text-muted-foreground" />
-          <p className="mt-4 text-sm font-medium text-muted-foreground">
-            No open positions yet. Add one to get started.
-          </p>
+          <p className="mt-4 text-sm font-medium text-muted-foreground">{t('noPositions')}</p>
         </CardContent>
       </Card>
     );
@@ -134,15 +136,15 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="w-8" />
-              <TableHead>Contract</TableHead>
-              <TableHead className="text-center">Health</TableHead>
-              <TableHead className="text-right">Strike</TableHead>
-              <TableHead className="text-right">Open</TableHead>
-              <TableHead className="text-right">Current</TableHead>
-              <TableHead className="text-right">P&L</TableHead>
-              <TableHead className="text-center">DTE</TableHead>
-              <TableHead className="text-center">Delta</TableHead>
-              <TableHead className="text-center">Theta/Day</TableHead>
+              <TableHead>{t('thContract')}</TableHead>
+              <TableHead className="text-center">{t('thHealth')}</TableHead>
+              <TableHead className="text-right">{t('thStrike')}</TableHead>
+              <TableHead className="text-right">{t('thOpen')}</TableHead>
+              <TableHead className="text-right">{t('thCurrent')}</TableHead>
+              <TableHead className="text-right">{t('thPnl')}</TableHead>
+              <TableHead className="text-center">{t('thDte')}</TableHead>
+              <TableHead className="text-center">{t('thDelta')}</TableHead>
+              <TableHead className="text-center">{t('thThetaDay')}</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -208,8 +210,8 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                           <p className="text-[11px] text-muted-foreground">
                             {STRATEGY_LABELS[p.strategy] ?? p.strategy} · {p.quantity}{' '}
                             {isOption
-                              ? `contract${p.quantity > 1 ? 's' : ''}`
-                              : `share${p.quantity > 1 ? 's' : ''}`}
+                              ? tc('contracts', { count: p.quantity })
+                              : tc('shares', { count: p.quantity })}
                           </p>
                         </div>
                       </div>
@@ -292,18 +294,16 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                     </TableCell>
                   </TableRow>
 
-                  {/* Expanded detail row */}
                   {isExpanded && (
                     <TableRow className="border-border bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={11} className="p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                          {/* Diagnosis */}
                           <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
-                              Diagnosis
+                              {t('diagnosis')}
                             </p>
                             <div className="space-y-1.5">
-                              <DetailRow label="Status">
+                              <DetailRow label={t('status')}>
                                 <Badge
                                   variant="outline"
                                   className={cn('text-[10px]', h.border, h.color)}
@@ -311,65 +311,64 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                   {d.health.zone}
                                 </Badge>
                               </DetailRow>
-                              <DetailRow label="Spot Price">
+                              <DetailRow label={t('spotPrice')}>
                                 <span className="font-mono">${d.current_spot.toFixed(2)}</span>
                               </DetailRow>
                               {isOption && (
                                 <>
-                                  <DetailRow label="Moneyness">
+                                  <DetailRow label={t('moneyness')}>
                                     <span className="font-medium">{d.moneyness}</span>
                                   </DetailRow>
-                                  <DetailRow label="IV">
+                                  <DetailRow label={t('iv')}>
                                     <span className="font-mono">
                                       {(d.current_iv * 100).toFixed(1)}%
                                     </span>
                                   </DetailRow>
-                                  <DetailRow label="Assignment Prob">
+                                  <DetailRow label={t('assignmentProb')}>
                                     <span className="font-mono">
                                       {d.assignment_prob.toFixed(1)}%
                                     </span>
                                   </DetailRow>
-                                  <DetailRow label="Profit Prob">
+                                  <DetailRow label={t('profitProb')}>
                                     <span className="font-mono">{d.pop.toFixed(1)}%</span>
                                   </DetailRow>
                                 </>
                               )}
                               {!isOption && (
-                                <DetailRow label="Cost Basis">
+                                <DetailRow label={t('costBasis')}>
                                   <span className="font-mono">${d.pnl.cost_value.toFixed(2)}</span>
                                 </DetailRow>
                               )}
                             </div>
                           </div>
 
-                          {/* Greeks */}
                           <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
-                              Position Greeks
+                              {t('positionGreeks')}
                             </p>
                             <div className="space-y-1.5">
-                              <DetailRow label="Delta">
+                              <DetailRow label={t('delta')}>
                                 <span className="font-mono">{d.greeks.delta.toFixed(2)}</span>
                               </DetailRow>
                               {isOption && (
                                 <>
-                                  <DetailRow label="Gamma">
+                                  <DetailRow label={t('gamma')}>
                                     <span className="font-mono">{d.greeks.gamma.toFixed(4)}</span>
                                   </DetailRow>
-                                  <DetailRow label="Theta">
+                                  <DetailRow label={t('theta')}>
                                     <span className="font-mono">
                                       ${d.greeks.theta.toFixed(2)}/day
                                     </span>
                                   </DetailRow>
-                                  <DetailRow label="Vega">
+                                  <DetailRow label={t('vega')}>
                                     <span className="font-mono">{d.greeks.vega.toFixed(2)}</span>
                                   </DetailRow>
                                 </>
                               )}
-                              <DetailRow label="Market Value">
+                              <DetailRow label={t('marketValue')}>
                                 <span className="font-mono">${d.pnl.market_value.toFixed(2)}</span>
                               </DetailRow>
-                              <DetailRow label="Unrealized P&L">
+                              <DetailRow label={t('unrealizedPnl')}>
                                 <span
                                   className={cn(
                                     'font-mono',
@@ -382,29 +381,27 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                             </div>
                           </div>
 
-                          {/* Time Value & Attribution (option only) */}
                           {isOption && d.time_value && d.attribution && (
                             <div className="space-y-2">
                               <p className="text-xs font-semibold uppercase text-muted-foreground">
-                                Time Value & Sensitivity
+                                {t('timeValueSensitivity')}
                               </p>
                               <div className="space-y-1.5">
-                                <DetailRow label="Intrinsic">
+                                <DetailRow label={t('intrinsic')}>
                                   <span className="font-mono">
                                     ${d.time_value.intrinsic_value.toFixed(2)}
                                   </span>
                                 </DetailRow>
-                                <DetailRow label="Extrinsic">
+                                <DetailRow label={t('extrinsic')}>
                                   <span className="font-mono">
                                     ${d.time_value.extrinsic_value.toFixed(2)}
                                   </span>
                                 </DetailRow>
-                                <DetailRow label="Time Value %">
+                                <DetailRow label={t('timeValuePct')}>
                                   <span className="font-mono">
                                     {d.time_value.time_value_pct.toFixed(0)}%
                                   </span>
                                 </DetailRow>
-                                {/* Time value progress bar */}
                                 <div className="pt-1">
                                   <div className="h-1.5 w-full rounded-full bg-muted">
                                     <div
@@ -415,36 +412,34 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                     />
                                   </div>
                                   <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                                    <span>Intrinsic</span>
-                                    <span>Time Value</span>
+                                    <span>{t('intrinsic')}</span>
+                                    <span>{t('timeValue')}</span>
                                   </div>
                                 </div>
                               </div>
-                              {/* Greek impact bars */}
                               <div className="mt-3 space-y-1">
                                 <p className="text-[10px] font-semibold uppercase text-muted-foreground">
-                                  Impact per 1% move
+                                  {t('impactPer1Pct')}
                                 </p>
                                 <ImpactBar
-                                  label="Delta (spot ±1%)"
+                                  label={t('deltaSpot')}
                                   value={d.attribution.delta_impact_1pct}
                                 />
                                 <ImpactBar
-                                  label="Vega (IV ±1%)"
+                                  label={t('vegaIv')}
                                   value={d.attribution.vega_impact_1pct}
                                 />
                                 <ImpactBar
-                                  label="Theta (1 day)"
+                                  label={t('theta1Day')}
                                   value={d.attribution.theta_daily}
                                 />
                               </div>
                             </div>
                           )}
 
-                          {/* Recommendation & Projections */}
                           <div className="space-y-3">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
-                              Recommendation
+                              {t('recommendation')}
                             </p>
                             <p className="text-sm leading-relaxed text-foreground/90">
                               {d.action_hint}
@@ -452,10 +447,10 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                             {isOption && d.time_value && (
                               <div className="rounded-md bg-muted/50 p-3">
                                 <p className="text-[10px] font-semibold uppercase text-muted-foreground">
-                                  Theta Projection
+                                  {t('thetaProjection')}
                                 </p>
                                 <div className="mt-1.5 space-y-1">
-                                  <DetailRow label="Next 7 days">
+                                  <DetailRow label={t('next7Days')}>
                                     <span
                                       className={cn(
                                         'font-mono',
@@ -467,7 +462,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                       ${d.time_value.theta_7d_projected.toFixed(2)}
                                     </span>
                                   </DetailRow>
-                                  <DetailRow label="To expiry">
+                                  <DetailRow label={t('toExpiry')}>
                                     <span
                                       className={cn(
                                         'font-mono',
@@ -479,7 +474,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                       ${d.time_value.theta_to_expiry_projected.toFixed(2)}
                                     </span>
                                   </DetailRow>
-                                  <DetailRow label="Capturable">
+                                  <DetailRow label={t('capturable')}>
                                     <span className="font-mono text-blue-400">
                                       ${d.time_value.total_extrinsic.toFixed(2)}
                                     </span>
@@ -488,23 +483,32 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                               </div>
                             )}
                             <div className="space-y-1 text-[11px] text-muted-foreground">
-                              <p>Opened: {p.open_date}</p>
-                              {p.expiry && <p>Expires: {p.expiry}</p>}
-                              {p.notes && <p>Note: {p.notes}</p>}
+                              <p>
+                                {t('opened')} {p.open_date}
+                              </p>
+                              {p.expiry && (
+                                <p>
+                                  {t('expires')} {p.expiry}
+                                </p>
+                              )}
+                              {p.notes && (
+                                <p>
+                                  {t('note')} {p.notes}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Decision matrix */}
                         {isOption && (
                           <div className="col-span-full mt-2 border-t border-border pt-4">
                             <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                              Action Alternatives
+                              {t('actionAlternatives')}
                             </p>
                             {decisionsLoading && (
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                Loading decisions...
+                                {t('loadingDecisions')}
                               </div>
                             )}
                             {decisions && decisions.position_id === p.id && (
@@ -541,7 +545,9 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                     </p>
                                     <div className="mt-2 space-y-1">
                                       <div className="flex justify-between text-[10px]">
-                                        <span className="text-muted-foreground">Expected P&L</span>
+                                        <span className="text-muted-foreground">
+                                          {t('expectedPnl')}
+                                        </span>
                                         <span
                                           className={cn(
                                             'font-mono font-medium',
@@ -555,12 +561,16 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-[10px]">
-                                        <span className="text-muted-foreground">POP</span>
+                                        <span className="text-muted-foreground">
+                                          {t('popLabel')}
+                                        </span>
                                         <span className="font-mono">{action.pop.toFixed(0)}%</span>
                                       </div>
                                       {action.net_credit !== null && (
                                         <div className="flex justify-between text-[10px]">
-                                          <span className="text-muted-foreground">Net Credit</span>
+                                          <span className="text-muted-foreground">
+                                            {t('netCredit')}
+                                          </span>
                                           <span
                                             className={cn(
                                               'font-mono',
@@ -575,7 +585,9 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                       )}
                                       {action.margin_freed > 0 && (
                                         <div className="flex justify-between text-[10px]">
-                                          <span className="text-muted-foreground">Margin Free</span>
+                                          <span className="text-muted-foreground">
+                                            {t('marginFree')}
+                                          </span>
                                           <span className="font-mono text-blue-400">
                                             ${action.margin_freed.toFixed(0)}
                                           </span>
@@ -592,7 +604,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                             {!decisionsLoading &&
                               (!decisions || decisions.position_id !== p.id) && (
                                 <p className="text-xs text-muted-foreground">
-                                  Unable to load decision matrix
+                                  {t('unableToLoadDecisions')}
                                 </p>
                               )}
                           </div>
@@ -607,21 +619,18 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
         </Table>
       </Card>
 
-      {/* Delete confirmation dialog */}
       <Dialog open={deleteId !== null} onOpenChange={(v) => !v && setDeleteId(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Delete Position</DialogTitle>
-            <DialogDescription>
-              This will permanently remove this position record. This action cannot be undone.
-            </DialogDescription>
+            <DialogTitle>{t('deletePosition')}</DialogTitle>
+            <DialogDescription>{t('deleteConfirm')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-              {loading ? 'Deleting...' : 'Delete'}
+              {loading ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useDashboard } from '@/hooks/use-swr-api';
 import { useClock } from '@/hooks/use-clock';
 import { SymbolCard } from '@/components/symbol-card';
@@ -11,15 +12,14 @@ import { Clock, Radio } from 'lucide-react';
 export default function DashboardPage() {
   const { data, error, isLoading, mutate } = useDashboard();
   const now = useClock();
+  const t = useTranslations('dashboard');
 
   return (
     <div className="space-y-8">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Watched symbols overview — sell premium, collect theta
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
         </div>
         <div className="flex items-center gap-2">
           {data && (
@@ -37,8 +37,8 @@ export default function DashboardPage() {
 
       {error && (
         <ErrorBanner
-          message="Failed to load market data"
-          detail="Make sure the backend is running on port 8000"
+          message={t('errorMessage')}
+          detail={t('errorDetail')}
           onRetry={() => mutate()}
         />
       )}

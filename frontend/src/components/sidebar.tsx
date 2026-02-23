@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard,
   Link as LinkIcon,
@@ -16,21 +17,35 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/chain', label: 'Option Chain', icon: LinkIcon },
-  { href: '/positions', label: 'Positions', icon: Briefcase },
-  { href: '/risk', label: 'Stress Test', icon: ShieldAlert },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
-  { href: '/chat', label: 'AI Advisor', icon: MessageSquare },
-  { href: '/events', label: 'Events', icon: Calendar },
-  { href: '/review', label: 'Review', icon: FileBarChart },
-  { href: '/learn', label: 'Knowledge', icon: BookOpen },
+type NavKey =
+  | 'dashboard'
+  | 'optionChain'
+  | 'positions'
+  | 'stressTest'
+  | 'alerts'
+  | 'aiAdvisor'
+  | 'events'
+  | 'review'
+  | 'knowledge';
+
+const navItems: { href: string; labelKey: NavKey; icon: typeof LayoutDashboard }[] = [
+  { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/chain', labelKey: 'optionChain', icon: LinkIcon },
+  { href: '/positions', labelKey: 'positions', icon: Briefcase },
+  { href: '/risk', labelKey: 'stressTest', icon: ShieldAlert },
+  { href: '/alerts', labelKey: 'alerts', icon: Bell },
+  { href: '/chat', labelKey: 'aiAdvisor', icon: MessageSquare },
+  { href: '/events', labelKey: 'events', icon: Calendar },
+  { href: '/review', labelKey: 'review', icon: FileBarChart },
+  { href: '/learn', labelKey: 'knowledge', icon: BookOpen },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations('nav');
+  const tSidebar = useTranslations('sidebar');
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
@@ -39,14 +54,14 @@ export function Sidebar() {
           <Activity className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
-          OptionSmart
+          {tSidebar('appName')}
         </span>
       </div>
 
       <Separator className="bg-border" />
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href));
           return (
             <Link
@@ -60,15 +75,16 @@ export function Sidebar() {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {label}
+              {t(labelKey)}
             </Link>
           );
         })}
       </nav>
 
       <Separator className="bg-border" />
-      <div className="px-5 py-3">
-        <p className="text-[11px] text-muted-foreground">Theta Decay Machine</p>
+      <div className="flex items-center justify-between px-5 py-3">
+        <p className="text-[11px] text-muted-foreground">{tSidebar('tagline')}</p>
+        <LocaleSwitcher />
       </div>
     </aside>
   );

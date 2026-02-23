@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ export function SymbolCard({ data, onClick }: SymbolCardProps) {
   const changePct = quote.change_pct ?? 0;
   const isUp = changePct >= 0;
   const ticker = quote.symbol.replace('.US', '');
+  const t = useTranslations('dashboard');
 
   return (
     <Card
@@ -50,7 +52,7 @@ export function SymbolCard({ data, onClick }: SymbolCardProps) {
           <div>
             <p className="text-2xl font-bold tabular-nums">${price.toFixed(2)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Vol: {(quote.volume / 1_000_000).toFixed(1)}M
+              {t('vol')}: {(quote.volume / 1_000_000).toFixed(1)}M
             </p>
           </div>
 
@@ -58,7 +60,7 @@ export function SymbolCard({ data, onClick }: SymbolCardProps) {
             <div className="text-right">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <BarChart3 className="h-3 w-3" />
-                IV Rank
+                {t('ivRank')}
               </div>
               <p
                 className={cn(

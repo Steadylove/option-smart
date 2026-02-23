@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   TrendingDown,
   TrendingUp,
@@ -30,33 +31,40 @@ const DIRECTION_LABELS: Record<string, string> = {
 };
 
 export function PortfolioSummary({ data }: PortfolioSummaryProps) {
+  const t = useTranslations('portfolio');
+  const tc = useTranslations('common');
+
   const metrics = [
     {
-      label: 'Total Delta',
+      label: t('totalDelta'),
       value: data.total_delta.toFixed(1),
       desc:
-        data.total_delta > 0 ? 'Bullish bias' : data.total_delta < 0 ? 'Bearish bias' : 'Neutral',
+        data.total_delta > 0
+          ? t('bullishBias')
+          : data.total_delta < 0
+            ? t('bearishBias')
+            : t('neutral'),
       icon: Activity,
       color: Math.abs(data.total_delta) > 100 ? 'text-yellow-400' : 'text-blue-400',
     },
     {
-      label: 'Daily Theta',
+      label: t('dailyTheta'),
       value: `$${data.daily_theta_income.toFixed(2)}`,
-      desc: 'Estimated daily income',
+      desc: t('estimatedDailyIncome'),
       icon: TrendingUp,
       color: data.daily_theta_income > 0 ? 'text-green-400' : 'text-red-400',
     },
     {
-      label: 'Total Vega',
+      label: t('totalVega'),
       value: data.total_vega.toFixed(1),
-      desc: 'IV sensitivity',
+      desc: t('ivSensitivity'),
       icon: TrendingDown,
       color: 'text-purple-400',
     },
     {
-      label: 'Unrealized P&L',
+      label: t('unrealizedPnl'),
       value: `${data.total_unrealized_pnl >= 0 ? '+' : ''}$${data.total_unrealized_pnl.toFixed(2)}`,
-      desc: 'All open positions',
+      desc: t('allOpenPositions'),
       icon: data.total_unrealized_pnl >= 0 ? TrendingUp : TrendingDown,
       color: data.total_unrealized_pnl >= 0 ? 'text-green-400' : 'text-red-400',
     },
@@ -70,7 +78,6 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
 
   return (
     <div className="space-y-4">
-      {/* Greeks & P&L metrics */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((m) => (
           <Card key={m.label} className="border-border">
@@ -86,9 +93,7 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
         ))}
       </div>
 
-      {/* Health, distribution & concentration */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* Health counts */}
         {(['safe', 'warning', 'danger'] as const).map((level) => {
           const h = healthIcons[level];
           const count = data.health_counts[level] ?? 0;
@@ -107,7 +112,6 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
           );
         })}
 
-        {/* Capturable time value */}
         <Card className="border-border">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
@@ -117,19 +121,19 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
               <p className="text-lg font-bold text-blue-400">
                 ${data.total_extrinsic_value.toFixed(0)}
               </p>
-              <p className="text-[11px] text-muted-foreground">Capturable Value</p>
+              <p className="text-[11px] text-muted-foreground">{t('capturableValue')}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Concentration analysis */}
       {data.concentration && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {/* Symbol concentration bar */}
           <Card className="border-border">
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">Symbol Concentration</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t('symbolConcentration')}
+              </p>
               <div className="mt-3 space-y-2">
                 {Object.entries(data.concentration.by_symbol)
                   .sort((a, b) => b[1] - a[1])
@@ -152,25 +156,23 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
                     </div>
                   ))}
                 {Object.keys(data.concentration.by_symbol).length === 0 && (
-                  <p className="text-xs text-muted-foreground">No positions</p>
+                  <p className="text-xs text-muted-foreground">{t('noPositions')}</p>
                 )}
-                {/* Concentration warning */}
                 {Object.values(data.concentration.by_symbol).some((v) => v > 60) && (
                   <div className="mt-2 flex items-center gap-1.5 rounded-md bg-yellow-500/10 px-2 py-1.5">
                     <AlertTriangle className="h-3 w-3 text-yellow-400" />
-                    <span className="text-[10px] text-yellow-400">
-                      High concentration — consider diversifying
-                    </span>
+                    <span className="text-[10px] text-yellow-400">{t('highConcentration')}</span>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Direction distribution */}
           <Card className="border-border">
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">Direction Distribution</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t('directionDistribution')}
+              </p>
               <div className="mt-3 space-y-2">
                 {Object.entries(data.concentration.by_direction).map(([dir, count]) => {
                   const total = Object.values(data.concentration!.by_direction).reduce(
@@ -199,10 +201,9 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
                   );
                 })}
               </div>
-              {/* Strategy breakdown */}
               <div className="mt-4">
                 <p className="text-[10px] font-semibold uppercase text-muted-foreground">
-                  By Strategy
+                  {t('byStrategy')}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {Object.entries(data.positions_by_strategy).map(([strat, count]) => (
@@ -218,10 +219,9 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
             </CardContent>
           </Card>
 
-          {/* Expiry concentration */}
           <Card className="border-border">
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">Expiry Distribution</p>
+              <p className="text-xs font-medium text-muted-foreground">{t('expiryDistribution')}</p>
               <div className="mt-3 space-y-2">
                 {Object.entries(data.concentration.by_expiry_week)
                   .sort()
@@ -236,7 +236,7 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
                         <div className="flex justify-between text-xs">
                           <span className="font-medium">{week}</span>
                           <span className="text-muted-foreground">
-                            {count} position{count > 1 ? 's' : ''}
+                            {count} {tc('positions', { count })}
                           </span>
                         </div>
                         <div className="h-1.5 w-full rounded-full bg-muted">
@@ -249,17 +249,14 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
                     );
                   })}
                 {Object.keys(data.concentration.by_expiry_week).length === 0 && (
-                  <p className="text-xs text-muted-foreground">No dated positions</p>
+                  <p className="text-xs text-muted-foreground">{t('noDatedPositions')}</p>
                 )}
-                {/* Cluster warning */}
                 {Object.values(data.concentration.by_expiry_week).some(
                   (v) => v >= 3 && data.total_positions > 3,
                 ) && (
                   <div className="mt-2 flex items-center gap-1.5 rounded-md bg-yellow-500/10 px-2 py-1.5">
                     <AlertTriangle className="h-3 w-3 text-yellow-400" />
-                    <span className="text-[10px] text-yellow-400">
-                      Multiple contracts expiring same week
-                    </span>
+                    <span className="text-[10px] text-yellow-400">{t('multipleExpiring')}</span>
                   </div>
                 )}
               </div>

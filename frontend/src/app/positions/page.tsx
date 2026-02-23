@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Briefcase, Download, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,6 +55,9 @@ export default function PositionsPage() {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [syncError, setSyncError] = useState('');
 
+  const t = useTranslations('positions');
+  const tc = useTranslations('common');
+
   function handleRefresh() {
     refreshAnalysis();
     refreshClosed();
@@ -67,7 +71,6 @@ export default function PositionsPage() {
       const result = await api.syncPositions();
       setSyncResult(result);
       handleRefresh();
-      // Auto-hide after 8s
       setTimeout(() => setSyncResult(null), 8000);
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Sync failed');
@@ -78,24 +81,21 @@ export default function PositionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Briefcase className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Positions</h1>
-            <p className="text-sm text-muted-foreground">
-              Monitor, diagnose and manage your option positions
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('description')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isValidating && (
             <Badge variant="outline" className="gap-1 border-border text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Updating
+              {t('updating')}
             </Badge>
           )}
           <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing}>
@@ -104,23 +104,22 @@ export default function PositionsPage() {
             ) : (
               <Download className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {syncing ? 'Syncing...' : 'Sync from Longbridge'}
+            {syncing ? t('syncing') : t('syncFromLongbridge')}
           </Button>
           <Button size="sm" variant="outline" onClick={handleRefresh}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Refresh
+            {tc('refresh')}
           </Button>
           <AddPositionDialog onCreated={handleRefresh} />
         </div>
       </div>
 
-      {/* Sync result banner */}
       {syncResult && (
         <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
           <div>
             <p className="font-medium text-green-400">
-              Sync complete — {syncResult.synced} imported, {syncResult.skipped} skipped
+              {t('syncComplete', { synced: syncResult.synced, skipped: syncResult.skipped })}
             </p>
             {syncResult.details.length > 0 && (
               <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
@@ -133,33 +132,25 @@ export default function PositionsPage() {
         </div>
       )}
 
-      {/* Sync error */}
       {syncError && (
-        <ErrorBanner
-          message="Failed to sync positions from Longbridge"
-          detail={syncError}
-          onRetry={handleSync}
-        />
+        <ErrorBanner message={t('syncError')} detail={syncError} onRetry={handleSync} />
       )}
 
-      {/* Analysis error */}
       {analysisError && (
         <ErrorBanner
-          message="Failed to load position analysis"
+          message={t('analysisError')}
           detail={analysisError instanceof Error ? analysisError.message : undefined}
           onRetry={() => refreshAnalysis()}
         />
       )}
 
-      {/* Loading */}
       {isLoading && <PositionsSkeleton />}
 
-      {/* Content */}
       {analysis && (
         <Tabs defaultValue="open" className="space-y-4">
           <TabsList>
             <TabsTrigger value="open">
-              Open
+              {t('tabOpen')}
               {analysis.portfolio.total_positions > 0 && (
                 <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
                   {analysis.portfolio.total_positions}
@@ -167,7 +158,7 @@ export default function PositionsPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="closed">
-              Closed
+              {t('tabClosed')}
               {closedPositions && closedPositions.length > 0 && (
                 <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
                   {closedPositions.length}
@@ -181,7 +172,7 @@ export default function PositionsPage() {
 
             <div>
               <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase">
-                Position Details
+                {t('positionDetails')}
               </h2>
               <PositionTable positions={analysis.positions} onRefresh={handleRefresh} />
             </div>
@@ -193,12 +184,12 @@ export default function PositionsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                      <th className="px-4 py-3">Contract</th>
-                      <th className="px-4 py-3 text-right">Open</th>
-                      <th className="px-4 py-3 text-right">Close</th>
-                      <th className="px-4 py-3 text-right">Realized P&L</th>
-                      <th className="px-4 py-3 text-center">Duration</th>
-                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">{t('thContract')}</th>
+                      <th className="px-4 py-3 text-right">{t('thOpen')}</th>
+                      <th className="px-4 py-3 text-right">{t('thClose')}</th>
+                      <th className="px-4 py-3 text-right">{t('thRealizedPnl')}</th>
+                      <th className="px-4 py-3 text-center">{t('thDuration')}</th>
+                      <th className="px-4 py-3">{t('thStatus')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -218,8 +209,8 @@ export default function PositionsPage() {
                               {p.option_type?.toUpperCase()}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              {p.direction.toUpperCase()} · {p.quantity} contract
-                              {p.quantity > 1 ? 's' : ''}
+                              {p.direction.toUpperCase()} · {p.quantity}{' '}
+                              {tc('contracts', { count: p.quantity })}
                             </p>
                           </td>
                           <td className="px-4 py-3 text-right font-mono">
@@ -258,7 +249,7 @@ export default function PositionsPage() {
             ) : (
               <Card className="border-border">
                 <CardContent className="flex flex-col items-center py-12 text-center">
-                  <p className="text-sm text-muted-foreground">No closed positions yet.</p>
+                  <p className="text-sm text-muted-foreground">{t('noClosedPositions')}</p>
                 </CardContent>
               </Card>
             )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +12,8 @@ interface ErrorBannerProps {
 }
 
 export function ErrorBanner({ message, detail, onRetry, className }: ErrorBannerProps) {
+  const t = useTranslations('common');
+
   return (
     <div
       className={cn(
@@ -31,7 +34,7 @@ export function ErrorBanner({ message, detail, onRetry, className }: ErrorBanner
           className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
         >
           <RefreshCw className="h-3 w-3" />
-          Retry
+          {t('retry')}
         </button>
       )}
     </div>

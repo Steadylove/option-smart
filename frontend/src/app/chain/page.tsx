@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useOptionExpiries, useOptionChain } from '@/hooks/use-swr-api';
 import { OptionChainTable } from '@/components/option-chain-table';
 import { ChainSkeleton } from '@/components/dashboard-skeleton';
@@ -25,6 +26,9 @@ export default function ChainPage() {
   const [expiry, setExpiry] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const t = useTranslations('chain');
+  const tc = useTranslations('common');
 
   const { data: expiries, error: expiriesError, mutate: retryExpiries } = useOptionExpiries(symbol);
   const {
@@ -51,13 +55,17 @@ export default function ChainPage() {
 
   const dte = chain?.calls[0]?.dte ?? chain?.puts[0]?.dte ?? null;
 
+  const viewModes = [
+    { key: 'all' as const, label: tc('all'), icon: ArrowUpDown },
+    { key: 'calls' as const, label: t('calls'), icon: ArrowUp },
+    { key: 'puts' as const, label: t('puts'), icon: ArrowDown },
+  ];
+
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Option Chain</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Analyze contracts with real-time Greeks — find optimal selling opportunities
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       <Tabs
@@ -76,16 +84,14 @@ export default function ChainPage() {
         </TabsList>
       </Tabs>
 
-      {/* Expiry error */}
       {expiriesError && (
         <ErrorBanner
-          message={`Failed to load expiry dates for ${symbol}`}
-          detail="API rate limit or network issue — will auto-retry"
+          message={t('expiryError', { symbol })}
+          detail={t('expiryErrorDetail')}
           onRetry={() => retryExpiries()}
         />
       )}
 
-      {/* Expiry date pills */}
       {futureDates.length > 0 && (
         <ScrollArea className="w-full">
           <div ref={scrollRef} className="flex gap-2 pb-2">
@@ -119,16 +125,14 @@ export default function ChainPage() {
         </ScrollArea>
       )}
 
-      {/* Chain error */}
       {chainError && !isLoading && (
         <ErrorBanner
-          message="Failed to load option chain"
-          detail="API rate limit exceeded — will auto-retry in 10s"
+          message={t('chainError')}
+          detail={t('chainErrorDetail')}
           onRetry={() => retryChain()}
         />
       )}
 
-      {/* Info bar + View mode toggle */}
       {chain && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -147,13 +151,7 @@ export default function ChainPage() {
           </div>
 
           <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
-            {(
-              [
-                { key: 'all', label: 'All', icon: ArrowUpDown },
-                { key: 'calls', label: 'Calls', icon: ArrowUp },
-                { key: 'puts', label: 'Puts', icon: ArrowDown },
-              ] as const
-            ).map(({ key, label, icon: Icon }) => (
+            {viewModes.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setViewMode(key)}
@@ -179,7 +177,7 @@ export default function ChainPage() {
           {isValidating && (
             <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-2 bg-primary/10 py-1 text-xs font-medium text-primary">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Loading...
+              {tc('loading')}
             </div>
           )}
           <CardContent className="p-0">

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { Sidebar } from '@/components/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
@@ -19,22 +21,27 @@ export const metadata: Metadata = {
   description: 'OptionSmart - AI-powered option selling strategy assistant',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang={locale} className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <TooltipProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-7xl p-6 lg:p-8">{children}</div>
-            </main>
-          </div>
-        </TooltipProvider>
+        <NextIntlClientProvider messages={messages}>
+          <TooltipProvider>
+            <div className="flex h-screen overflow-hidden">
+              <Sidebar />
+              <main className="flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-7xl p-6 lg:p-8">{children}</div>
+              </main>
+            </div>
+          </TooltipProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

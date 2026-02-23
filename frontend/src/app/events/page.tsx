@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Markdown from 'react-markdown';
 import {
   Calendar as CalendarIcon,
@@ -35,16 +36,22 @@ import { useEventTimeline, useMarketNews } from '@/hooks/use-swr-api';
 import { api } from '@/lib/api';
 import type { MarketEvent, MarketNewsItem } from '@/lib/api';
 
-const EVENT_TYPE_CONFIG: Record<
-  string,
-  { label: string; color: string; icon: typeof CalendarIcon }
-> = {
-  earnings: { label: 'Earnings', color: 'text-amber-400', icon: BarChart3 },
-  fomc: { label: 'Fed/FOMC', color: 'text-red-400', icon: Landmark },
-  cpi: { label: 'CPI', color: 'text-orange-400', icon: TrendingUp },
-  gdp: { label: 'GDP', color: 'text-blue-400', icon: BarChart3 },
-  jobs: { label: 'Employment', color: 'text-green-400', icon: TrendingUp },
-  other: { label: 'Macro', color: 'text-purple-400', icon: DollarSign },
+const EVENT_TYPE_ICONS: Record<string, typeof CalendarIcon> = {
+  earnings: BarChart3,
+  fomc: Landmark,
+  cpi: TrendingUp,
+  gdp: BarChart3,
+  jobs: TrendingUp,
+  other: DollarSign,
+};
+
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  earnings: 'text-amber-400',
+  fomc: 'text-red-400',
+  cpi: 'text-orange-400',
+  gdp: 'text-blue-400',
+  jobs: 'text-green-400',
+  other: 'text-purple-400',
 };
 
 const IMPACT_VARIANT: Record<string, 'destructive' | 'secondary' | 'outline'> = {
@@ -53,12 +60,18 @@ const IMPACT_VARIANT: Record<string, 'destructive' | 'secondary' | 'outline'> = 
   low: 'outline',
 };
 
-const SYMBOL_OPTIONS = [
-  { value: 'all', label: 'All Symbols' },
-  { value: 'TQQQ.US', label: 'TQQQ' },
-  { value: 'TSLL.US', label: 'TSLL' },
-  { value: 'NVDL.US', label: 'NVDL' },
-];
+const ANALYSIS_TOOL_KEYS: Record<string, string> = {
+  get_portfolio_overview: 'portfolioOverview',
+  get_position_list: 'positionList',
+  get_upcoming_events: 'upcomingEvents',
+  search_market_news: 'searchNews',
+  get_alerts: 'alerts',
+  get_stock_quote: 'stockQuote',
+  assess_event_impact: 'eventImpact',
+  get_economic_calendar: 'economicCalendar',
+  run_stress_test: 'stressTest',
+  get_decision_matrix: 'decisionMatrix',
+};
 
 export default function EventsPage() {
   const [newsSymbol, setNewsSymbol] = useState('all');
@@ -67,6 +80,9 @@ export default function EventsPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [toolCalls, setToolCalls] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+
+  const t = useTranslations('events');
+  const tc = useTranslations('common');
 
   const { data: timeline, isLoading: timelineLoading } = useEventTimeline(7, 30);
   const { data: newsData, isLoading: newsLoading } = useMarketNews(
@@ -83,6 +99,13 @@ export default function EventsPage() {
   const nextEarnings = events.find((e) => e.type === 'earnings');
 
   const eventsByDate = groupByDate(events);
+
+  const symbolOptions = [
+    { value: 'all', label: t('allSymbols') },
+    { value: 'TQQQ.US', label: 'TQQQ' },
+    { value: 'TSLL.US', label: 'TSLL' },
+    { value: 'NVDL.US', label: 'NVDL' },
+  ];
 
   const runAnalysis = useCallback(async () => {
     setAnalysisOpen(true);
@@ -129,13 +152,13 @@ export default function EventsPage() {
       }
     } catch (err) {
       if (!controller.signal.aborted) {
-        setAnalysisContent((prev) => prev + `\n\n> 分析出错: ${err}`);
+        setAnalysisContent((prev) => prev + `\n\n> ${t('analysisError', { error: String(err) })}`);
       }
     } finally {
       setAnalysisLoading(false);
       abortRef.current = null;
     }
-  }, []);
+  }, [t]);
 
   const stopAnalysis = useCallback(() => {
     abortRef.current?.abort();
@@ -146,10 +169,8 @@ export default function EventsPage() {
     <div className="flex h-screen flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold">Market Events</h1>
-          <p className="text-sm text-muted-foreground">
-            Upcoming earnings, FOMC, CPI and other market-moving events
-          </p>
+          <h1 className="text-lg font-semibold">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('description')}</p>
         </div>
         <Button onClick={runAnalysis} disabled={analysisLoading} className="gap-2">
           {analysisLoading ? (
@@ -157,38 +178,35 @@ export default function EventsPage() {
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          AI 综合分析
+          {t('aiAnalysis')}
         </Button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main — event timeline */}
         <ScrollArea className="flex-1">
           <div className="px-6 py-4">
-            {/* Summary cards */}
             <div className="mb-6 grid grid-cols-3 gap-4">
               <SummaryCard
-                label="Upcoming Events"
+                label={t('upcomingEvents')}
                 value={events.length}
-                sub="Next 30 days"
+                sub={t('next30Days')}
                 icon={CalendarIcon}
               />
               <SummaryCard
-                label="High Impact"
+                label={t('highImpact')}
                 value={highImpactCount}
-                sub={`${earningsCount} earnings`}
+                sub={t('earnings', { count: earningsCount })}
                 icon={AlertTriangle}
                 accent
               />
               <SummaryCard
-                label="Next Earnings"
-                value={nextEarnings?.symbol || 'None'}
-                sub={nextEarnings ? daysUntil(nextEarnings.date) : 'No upcoming'}
+                label={t('nextEarnings')}
+                value={nextEarnings?.symbol || t('none')}
+                sub={nextEarnings ? daysUntil(nextEarnings.date, tc) : t('noUpcoming')}
                 icon={BarChart3}
               />
             </div>
 
-            {/* AI Analysis panel — inline, above timeline */}
             {analysisOpen && (
               <AnalysisPanel
                 content={analysisContent}
@@ -201,8 +219,9 @@ export default function EventsPage() {
               />
             )}
 
-            {/* Timeline */}
-            <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Event Timeline</h2>
+            <h2 className="mb-4 text-sm font-semibold text-muted-foreground">
+              {t('eventTimeline')}
+            </h2>
 
             {timelineLoading ? (
               <div className="space-y-4">
@@ -213,7 +232,7 @@ export default function EventsPage() {
             ) : events.length === 0 ? (
               <Card className="py-8">
                 <CardContent className="text-center text-sm text-muted-foreground">
-                  No upcoming events found. Make sure FINNHUB_API_KEY is configured.
+                  {t('noEvents')}
                 </CardContent>
               </Card>
             ) : (
@@ -226,16 +245,15 @@ export default function EventsPage() {
           </div>
         </ScrollArea>
 
-        {/* Sidebar — news feed */}
         <div className="w-96 shrink-0 border-l border-border">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h2 className="text-sm font-semibold">Latest News</h2>
+            <h2 className="text-sm font-semibold">{t('latestNews')}</h2>
             <Select value={newsSymbol} onValueChange={setNewsSymbol}>
               <SelectTrigger size="sm" className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SYMBOL_OPTIONS.map((s) => (
+                {symbolOptions.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
                     {s.label}
                   </SelectItem>
@@ -251,7 +269,7 @@ export default function EventsPage() {
                   <Skeleton key={i} className="h-24 w-full rounded-lg" />
                 ))
               ) : (filteredNews.length > 0 ? filteredNews : recentNews).length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No news available</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">{t('noNews')}</p>
               ) : (
                 (filteredNews.length > 0 ? filteredNews : recentNews).map((item, i) => (
                   <NewsCard key={i} item={item} />
@@ -276,18 +294,7 @@ function AnalysisPanel({
   toolCalls: string[];
   onClose: () => void;
 }) {
-  const TOOL_LABELS: Record<string, string> = {
-    get_portfolio_overview: '持仓概览',
-    get_position_list: '持仓列表',
-    get_upcoming_events: '事件日历',
-    search_market_news: '新闻搜索',
-    get_alerts: '告警扫描',
-    get_stock_quote: '实时行情',
-    assess_event_impact: '事件影响评估',
-    get_economic_calendar: '经济日历',
-    run_stress_test: '压力测试',
-    get_decision_matrix: '决策矩阵',
-  };
+  const t = useTranslations('events');
 
   const hasContent = content.trim().length > 0;
   const showToolPhase = loading && !hasContent && toolCalls.length > 0;
@@ -298,7 +305,7 @@ function AnalysisPanel({
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold">AI 综合分析</span>
+            <span className="text-sm font-semibold">{t('aiAnalysis')}</span>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
@@ -306,19 +313,20 @@ function AnalysisPanel({
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto px-4 pb-4">
-          {/* Phase 1: gathering data via tools */}
           {!hasContent && loading && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                {showToolPhase ? '正在调用工具获取数据...' : '正在准备分析...'}
+                {showToolPhase ? t('callingTools') : t('preparingAnalysis')}
               </div>
               {toolCalls.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {toolCalls.map((tool, i) => (
                     <Badge key={i} variant="outline" className="gap-1 text-[10px]">
                       <Wrench className="h-3 w-3" />
-                      {TOOL_LABELS[tool] || tool}
+                      {ANALYSIS_TOOL_KEYS[tool]
+                        ? t(`toolLabels.${ANALYSIS_TOOL_KEYS[tool]}`)
+                        : tool}
                     </Badge>
                   ))}
                 </div>
@@ -326,7 +334,6 @@ function AnalysisPanel({
             </div>
           )}
 
-          {/* Phase 2: streaming content */}
           {hasContent && (
             <>
               {toolCalls.length > 0 && (
@@ -334,7 +341,9 @@ function AnalysisPanel({
                   {toolCalls.map((tool, i) => (
                     <Badge key={i} variant="outline" className="gap-1 text-[10px] opacity-60">
                       <Wrench className="h-3 w-3" />
-                      {TOOL_LABELS[tool] || tool}
+                      {ANALYSIS_TOOL_KEYS[tool]
+                        ? t(`toolLabels.${ANALYSIS_TOOL_KEYS[tool]}`)
+                        : tool}
                     </Badge>
                   ))}
                 </div>
@@ -411,6 +420,7 @@ function DateGroup({ date, events }: { date: string; events: MarketEvent[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = date === today;
   const isPast = date < today;
+  const tc = useTranslations('common');
 
   return (
     <div>
@@ -422,7 +432,7 @@ function DateGroup({ date, events }: { date: string; events: MarketEvent[] }) {
           className={`text-xs font-semibold ${isToday ? 'text-primary' : 'text-muted-foreground'}`}
         >
           {formatDate(date)}
-          {isToday && ' (Today)'}
+          {isToday && ` (${tc('today')})`}
         </span>
       </div>
 
@@ -436,15 +446,16 @@ function DateGroup({ date, events }: { date: string; events: MarketEvent[] }) {
 }
 
 function EventCard({ event }: { event: MarketEvent }) {
-  const config = EVENT_TYPE_CONFIG[event.type] || EVENT_TYPE_CONFIG.other;
-  const Icon = config.icon;
+  const Icon = EVENT_TYPE_ICONS[event.type] || EVENT_TYPE_ICONS.other;
+  const color = EVENT_TYPE_COLORS[event.type] || EVENT_TYPE_COLORS.other;
+  const t = useTranslations('events');
 
   return (
     <Card className="gap-2 py-3">
       <CardContent>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <Icon className={`h-4 w-4 ${config.color}`} />
+            <Icon className={`h-4 w-4 ${color}`} />
             <span className="text-sm font-medium">{event.title}</span>
             {event.symbol && (
               <Badge variant="secondary" className="text-[10px]">
@@ -463,12 +474,12 @@ function EventCard({ event }: { event: MarketEvent }) {
           <div className="mt-2 flex gap-3 text-xs">
             {event.eps_estimate != null && (
               <span className="text-muted-foreground">
-                EPS Est: <span className="text-foreground">{event.eps_estimate}</span>
+                {t('epsEstimate')} <span className="text-foreground">{event.eps_estimate}</span>
               </span>
             )}
             {event.eps_actual != null && (
               <span className="text-muted-foreground">
-                Actual: <span className="text-foreground">{event.eps_actual}</span>
+                {t('epsActual')} <span className="text-foreground">{event.eps_actual}</span>
               </span>
             )}
           </div>
@@ -542,13 +553,13 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function daysUntil(dateStr: string): string {
+function daysUntil(dateStr: string, tc: ReturnType<typeof useTranslations<'common'>>): string {
   const target = new Date(dateStr + 'T00:00:00');
   const now = new Date();
   const diff = Math.ceil((target.getTime() - now.getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  return `In ${diff} days`;
+  if (diff === 0) return tc('today');
+  if (diff === 1) return tc('tomorrow');
+  return tc('inDays', { days: diff });
 }
 
 function formatRelativeTime(isoStr: string): string {
@@ -557,11 +568,11 @@ function formatRelativeTime(isoStr: string): string {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffMin < 60) return `${diffMin}m`;
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `${diffH}h ago`;
+    if (diffH < 24) return `${diffH}h`;
     const diffD = Math.floor(diffH / 24);
-    return `${diffD}d ago`;
+    return `${diffD}d`;
   } catch {
     return '';
   }

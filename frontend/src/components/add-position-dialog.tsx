@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,15 +18,6 @@ import { Label } from '@/components/ui/label';
 import { api, type PositionCreate } from '@/lib/api';
 
 const SYMBOLS = ['TQQQ.US', 'TSLL.US', 'NVDL.US'];
-const STRATEGIES = [
-  { value: 'csp', label: 'Cash-Secured Put' },
-  { value: 'cc', label: 'Covered Call' },
-  { value: 'bull_put_spread', label: 'Bull Put Spread' },
-  { value: 'bear_call_spread', label: 'Bear Call Spread' },
-  { value: 'iron_condor', label: 'Iron Condor' },
-  { value: 'strangle', label: 'Strangle' },
-  { value: 'custom', label: 'Custom' },
-];
 
 interface AddPositionDialogProps {
   onCreated: () => void;
@@ -35,6 +27,19 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const t = useTranslations('addPosition');
+  const tc = useTranslations('common');
+
+  const strategies = [
+    { value: 'csp', label: t('strategyCsp') },
+    { value: 'cc', label: t('strategyCc') },
+    { value: 'bull_put_spread', label: t('strategyBullPut') },
+    { value: 'bear_call_spread', label: t('strategyBearCall') },
+    { value: 'iron_condor', label: t('strategyIc') },
+    { value: 'strangle', label: t('strategyStrangle') },
+    { value: 'custom', label: t('strategyCustom') },
+  ];
 
   const [form, setForm] = useState({
     symbol: 'TQQQ.US',
@@ -60,7 +65,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
     setError('');
 
     if (!form.option_symbol || !form.strike || !form.expiry || !form.open_price) {
-      setError('Please fill in all required fields');
+      setError(t('requiredFields'));
       return;
     }
 
@@ -96,7 +101,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
         notes: '',
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create position');
+      setError(err instanceof Error ? err.message : t('createFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -107,22 +112,19 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" />
-          Add Position
+          {t('addPosition')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Add New Position</DialogTitle>
-          <DialogDescription>
-            Manually record an option position for tracking and analysis.
-          </DialogDescription>
+          <DialogTitle>{t('title')}</DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          {/* Row 1: Symbol + Option Type */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="symbol">Underlying</Label>
+              <Label htmlFor="symbol">{t('underlying')}</Label>
               <select
                 id="symbol"
                 value={form.symbol}
@@ -137,32 +139,31 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="option_type">Type</Label>
+              <Label htmlFor="option_type">{t('type')}</Label>
               <div className="flex gap-1">
-                {(['put', 'call'] as const).map((t) => (
+                {(['put', 'call'] as const).map((tp) => (
                   <button
-                    key={t}
+                    key={tp}
                     type="button"
-                    onClick={() => update('option_type', t)}
+                    onClick={() => update('option_type', tp)}
                     className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-                      form.option_type === t
-                        ? t === 'put'
+                      form.option_type === tp
+                        ? tp === 'put'
                           ? 'border-red-500/50 bg-red-500/10 text-red-400'
                           : 'border-green-500/50 bg-green-500/10 text-green-400'
                         : 'border-border bg-transparent text-muted-foreground hover:bg-accent'
                     }`}
                   >
-                    {t.toUpperCase()}
+                    {tp.toUpperCase()}
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Row 2: Direction + Strategy */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="direction">Direction</Label>
+              <Label htmlFor="direction">{t('direction')}</Label>
               <div className="flex gap-1">
                 {(['sell', 'buy'] as const).map((d) => (
                   <button
@@ -181,14 +182,14 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="strategy">Strategy</Label>
+              <Label htmlFor="strategy">{t('strategy')}</Label>
               <select
                 id="strategy"
                 value={form.strategy}
                 onChange={(e) => update('strategy', e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {STRATEGIES.map((s) => (
+                {strategies.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
@@ -197,32 +198,30 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
             </div>
           </div>
 
-          {/* Row 3: Option Symbol */}
           <div className="space-y-1.5">
-            <Label htmlFor="option_symbol">Option Symbol *</Label>
+            <Label htmlFor="option_symbol">{t('optionSymbol')}</Label>
             <Input
               id="option_symbol"
-              placeholder="e.g. TQQQ250321P00060000.US"
+              placeholder={t('optionSymbolPlaceholder')}
               value={form.option_symbol}
               onChange={(e) => update('option_symbol', e.target.value)}
             />
           </div>
 
-          {/* Row 4: Strike + Expiry */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="strike">Strike Price *</Label>
+              <Label htmlFor="strike">{t('strikePrice')}</Label>
               <Input
                 id="strike"
                 type="number"
                 step="0.01"
-                placeholder="60.00"
+                placeholder={t('strikePlaceholder')}
                 value={form.strike}
                 onChange={(e) => update('strike', e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="expiry">Expiry Date *</Label>
+              <Label htmlFor="expiry">{t('expiryDate')}</Label>
               <Input
                 id="expiry"
                 type="date"
@@ -232,10 +231,9 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
             </div>
           </div>
 
-          {/* Row 5: Quantity + Open Price */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="quantity">{t('quantity')}</Label>
               <Input
                 id="quantity"
                 type="number"
@@ -245,21 +243,20 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="open_price">Open Price *</Label>
+              <Label htmlFor="open_price">{t('openPrice')}</Label>
               <Input
                 id="open_price"
                 type="number"
                 step="0.01"
-                placeholder="1.50"
+                placeholder={t('openPricePlaceholder')}
                 value={form.open_price}
                 onChange={(e) => update('open_price', e.target.value)}
               />
             </div>
           </div>
 
-          {/* Row 6: Open Date */}
           <div className="space-y-1.5">
-            <Label htmlFor="open_date">Open Date</Label>
+            <Label htmlFor="open_date">{t('openDate')}</Label>
             <Input
               id="open_date"
               type="date"
@@ -268,12 +265,11 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
             />
           </div>
 
-          {/* Row 7: Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t('notes')}</Label>
             <Input
               id="notes"
-              placeholder="Optional notes about this position..."
+              placeholder={t('notesPlaceholder')}
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
             />
@@ -283,10 +279,10 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create Position'}
+              {submitting ? t('creating') : t('createPosition')}
             </Button>
           </DialogFooter>
         </form>
