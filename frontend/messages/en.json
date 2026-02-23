@@ -457,6 +457,20 @@
     "marginForced": "Forced Close",
     "marginEmpty": "No margin data yet. Click Refresh All to fetch from Longbridge."
   },
+  "posAssistant": {
+    "title": "Robby",
+    "placeholder": "Ask about your positions...",
+    "emptyHint": "I can answer any question about your current positions",
+    "suggest1": "Which positions need priority attention?",
+    "suggest2": "How is the overall portfolio risk?",
+    "suggest3": "Which positions can I take profit on?",
+    "clear": "Clear chat",
+    "thinking": "Thinking...",
+    "deepOn": "Deep thinking enabled",
+    "deepOff": "Enable deep thinking",
+    "deepThinking": "Deep thinking...",
+    "deepDone": "Deep thinking done"
+  },
   "locale": {
     "switchTo": "中文",
     "en": "EN",

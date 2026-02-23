@@ -153,8 +153,9 @@ TOOLS = [
             "name": "search_market_news",
             "description": (
                 "搜索某个标的的最近新闻。支持杠杆 ETF 自动映射到底层资产"
-                "（如 TQQQ→QQQ/AAPL/MSFT 等，TSLL→TSLA，NVDL→NVDA）。"
-                "用于分析市场情绪、寻找价格变动原因。"
+                "（如 TQQQ->QQQ/AAPL/MSFT 等，TSLL->TSLA，NVDL->NVDA）。"
+                "返回包含 headline、summary、url 等字段。"
+                "展示新闻时必须用 [标题](url) 格式附带链接。"
             ),
             "parameters": {
                 "type": "object",
@@ -263,6 +264,29 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_metric_definitions",
+            "description": (
+                "获取系统中各项指标的计算公式和含义说明。"
+                "当用户询问某个指标怎么算的、代表什么意思时调用此工具。"
+                "可按类别筛选：greeks（希腊值）、margin（保证金）、"
+                "efficiency（效率指标）、pnl（盈亏）、risk（风险）、all（全部）。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["greeks", "margin", "efficiency", "pnl", "risk", "all"],
+                        "description": "指标类别，不确定就用 all",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 
@@ -351,6 +375,9 @@ async def _dispatch(
 
     if name == "assess_event_impact":
         return await _tool_assess_event_impact(args["event_type"], args.get("symbol"))
+
+    if name == "get_metric_definitions":
+        return _tool_metric_definitions(args.get("category", "all"))
 
     return {"error": f"未知工具: {name}"}
 
@@ -517,6 +544,7 @@ async def _tool_search_news(symbol: str, days_back: int = 7) -> dict:
             "headline": r.headline,
             "summary": (r.summary or "")[:100],
             "source": r.source or "",
+            "url": r.url or "",
             "published_at": r.published_at,
         }
         for r in rows
@@ -558,3 +586,135 @@ async def _tool_assess_event_impact(event_type: str, symbol: str | None = None) 
     from backend.core.event_analyzer import assess_event_impact
 
     return await assess_event_impact(event_type, symbol)
+
+
+# ── Metric definitions (on-demand context) ───────────────
+
+_METRIC_DEFS: dict[str, list[dict]] = {
+    "greeks": [
+        {
+            "name": "Delta",
+            "formula": "BSM d1 = [ln(S/K) + (r - q + sigma^2/2)*T] / (sigma*sqrt(T)); delta_call = N(d1), delta_put = N(d1) - 1",
+            "meaning": "spot +$1 => position P&L change (multiplied by 100*qty for options)",
+            "display": "per-position and aggregated per-symbol / portfolio",
+        },
+        {
+            "name": "Gamma",
+            "formula": "N'(d1) / (S * sigma * sqrt(T))",
+            "meaning": "delta change rate per $1 spot move; high gamma = delta unstable near ATM",
+        },
+        {
+            "name": "Theta",
+            "formula": "-(S * N'(d1) * sigma) / (2 * sqrt(T)) - r*K*exp(-r*T)*N(d2) (put: +r*K*exp(-r*T)*N(-d2))",
+            "meaning": "daily time decay in $; positive for sellers = daily income",
+            "display": "theta_per_day = |theta| / 365 * 100 * qty; shown as daily $ income",
+        },
+        {
+            "name": "Vega",
+            "formula": "S * sqrt(T) * N'(d1)",
+            "meaning": "P&L change if IV moves +1%; high vega = sensitive to volatility",
+        },
+        {
+            "name": "POP (Probability of Profit)",
+            "formula": "sell call: N(-d1); sell put: N(d1); buy call: N(d1); buy put: N(-d1)",
+            "meaning": "probability that the seller keeps the premium at expiry",
+        },
+    ],
+    "margin": [
+        {
+            "name": "Estimated Margin (Options)",
+            "formula": "naked put: max(20%*spot - OTM + premium, 10%*strike + premium) * 100 * qty; naked call: max(20%*spot - OTM + premium, 15%*spot + premium) * 100 * qty",
+            "meaning": "Reg-T estimated margin; OTM = max(spot-strike,0) for puts, max(strike-spot,0) for calls",
+            "note": "covered options = 0 margin; long options = 0 margin",
+        },
+        {
+            "name": "Estimated Margin (Stocks)",
+            "formula": "spot * qty * im_factor",
+            "meaning": "im_factor from Longbridge margin_ratio API per symbol (e.g. 0.25 = 25%)",
+        },
+        {
+            "name": "Margin Utilization",
+            "formula": "init_margin / net_assets * 100%",
+            "meaning": "how much of your net assets is locked as margin; >80% = danger zone",
+        },
+        {
+            "name": "Margin Safety Buffer",
+            "formula": "(net_assets - maintenance_margin) / net_assets * 100%",
+            "meaning": "how far from margin call; <25% = warning, <10% = critical",
+        },
+    ],
+    "efficiency": [
+        {
+            "name": "Margin Return Annualized",
+            "formula": "theta_per_day * 365 / estimated_margin * 100%",
+            "meaning": "annualized theta income per $1 margin; measures capital efficiency",
+            "note": "higher = margin working harder; but doesn't account for risk",
+        },
+        {
+            "name": "Risk-Adjusted Return Annualized",
+            "formula": "theta_per_day * 365 / max_loss * 100%",
+            "meaning": "annualized theta income per $1 of max potential loss",
+            "note": "put max_loss = strike * 100 * qty (stock -> 0); call uses 2x spot as proxy; independent of margin, measures risk compensation",
+        },
+        {
+            "name": "Theta Yield (Portfolio)",
+            "formula": "sum(option_theta) / sum(option_margin) * 365 * 100%",
+            "meaning": "portfolio-level annualized theta return on total option margin",
+        },
+    ],
+    "pnl": [
+        {
+            "name": "Unrealized P&L",
+            "formula": "sell: (open_price - current_price) * qty * 100; buy: (current_price - open_price) * qty * 100",
+            "meaning": "paper profit/loss if closed now",
+        },
+        {
+            "name": "Unrealized P&L %",
+            "formula": "unrealized_pnl / cost_value * 100%",
+            "meaning": "percentage return on the premium paid/received",
+        },
+        {
+            "name": "Time Value (Extrinsic)",
+            "formula": "option_price - intrinsic_value; intrinsic for put = max(strike-spot, 0); for call = max(spot-strike, 0)",
+            "meaning": "the portion of premium that decays to 0 at expiry; this is what sellers capture",
+        },
+        {
+            "name": "Capturable Value",
+            "formula": "total_extrinsic = extrinsic_per_share * 100 * qty (for sellers)",
+            "meaning": "remaining time value across all sell positions; theoretical max additional profit",
+        },
+    ],
+    "risk": [
+        {
+            "name": "Health Score",
+            "formula": "base 50 + adjustments for: moneyness (OTM +20, ATM -5, ITM -20), DTE (>30d +10, <14d -10, <7d -20), P&L (profitable +10, losing >50% -15), IV (extreme high/low -5), delta (>0.7 -10)",
+            "meaning": "0-100 score; >70 = safe (green), 40-70 = warning (yellow), <40 = danger (red)",
+        },
+        {
+            "name": "Assignment Probability",
+            "formula": "|delta| * 100%",
+            "meaning": "rough probability of being assigned; based on delta as proxy for ITM probability at expiry",
+        },
+        {
+            "name": "Risk Level (Account)",
+            "formula": "from Longbridge API: 0=safe, 1=medium, 2=early warning, 3=danger",
+            "meaning": "broker-side risk assessment of overall account health",
+        },
+        {
+            "name": "Freeable Margin",
+            "formula": "sum(estimated_margin) for positions where unrealized_pnl > 0",
+            "meaning": "margin that would be freed if all profitable positions are closed",
+        },
+    ],
+}
+
+
+def _tool_metric_definitions(category: str = "all") -> dict:
+    if category == "all":
+        metrics = []
+        for cat_metrics in _METRIC_DEFS.values():
+            metrics.extend(cat_metrics)
+        return {"category": "all", "metrics": metrics}
+    if category in _METRIC_DEFS:
+        return {"category": category, "metrics": _METRIC_DEFS[category]}
+    return {"error": f"unknown category: {category}", "available": list(_METRIC_DEFS.keys())}

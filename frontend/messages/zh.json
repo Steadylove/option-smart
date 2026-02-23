@@ -457,6 +457,20 @@
     "marginForced": "强平保证金率",
     "marginEmpty": "暂无保证金数据，点击「批量刷新」从长桥获取。"
   },
+  "posAssistant": {
+    "title": "Robby",
+    "placeholder": "问一下当前持仓...",
+    "emptyHint": "我可以回答你关于当前持仓的任何问题",
+    "suggest1": "哪些持仓需要优先处理？",
+    "suggest2": "当前组合风险如何？",
+    "suggest3": "有哪些可以止盈的持仓？",
+    "clear": "清空对话",
+    "thinking": "思考中...",
+    "deepOn": "深度思考已开启",
+    "deepOff": "开启深度思考",
+    "deepThinking": "正在深度思考...",
+    "deepDone": "深度思考完成"
+  },
   "locale": {
     "switchTo": "English",
     "en": "EN",

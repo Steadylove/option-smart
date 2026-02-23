@@ -22,9 +22,20 @@ from backend.config import settings
 from backend.core.ai_tools import TOOLS, build_portfolio_context, execute_tool
 from backend.models.schemas import PositionDiagnosis
 
+# Tool subset for the lightweight positions assistant
+_POSITIONS_TOOL_NAMES = {
+    "get_stock_quote",
+    "get_position_detail",
+    "search_market_news",
+    "get_alerts",
+    "get_decision_matrix",
+    "get_metric_definitions",
+}
+POSITIONS_TOOLS = [t for t in TOOLS if t["function"]["name"] in _POSITIONS_TOOL_NAMES]
+
 logger = logging.getLogger(__name__)
 
-_MAX_TOOL_ROUNDS = 5
+_MAX_TOOL_ROUNDS = 3
 _USE_DEEP_THINKING = False
 
 AI_PROVIDERS: dict[str, dict] = {
@@ -120,7 +131,7 @@ def _llm_fast() -> ChatOpenAI:
         model=config["fast_model"],
         temperature=0.7,
         max_tokens=4096,
-        timeout=60,
+        timeout=120,
     )
 
 
@@ -314,10 +325,6 @@ async def chat_stream(
 
         yield f"[TOOL:{','.join(tool_names)}]"
 
-        # After first tool round, go directly to streaming final answer.
-        # The portfolio context + tool results provide enough data.
-        break
-
     try:
         async for event_type, content in _stream_final(working, deep_thinking=deep_thinking):
             if event_type == "thinking":
@@ -327,6 +334,77 @@ async def chat_stream(
     except Exception as e:
         logger.error("AI stream failed [%s]: %s", type(e).__name__, e, exc_info=True)
         yield f"\n\nAI 流式输出出错: {type(e).__name__}: {e}"
+
+
+_POSITIONS_ASSISTANT_PROMPT = """\
+你是持仓分析助手。用户正在查看他们的期权持仓管理页面。
+以下是当前页面的完整分析数据（JSON）：
+
+{context}
+
+## 回答规则
+- 基于上述数据回答用户问题，数据已包含组合概览、各持仓诊断、账户风险等全部信息
+- 引用具体数字（价格、Greeks、盈亏百分比）支撑回答
+- 如需最新市场数据（实时股价、新闻），调用工具获取
+- 用户问指标怎么算的、公式是什么，调用 get_metric_definitions 工具获取精确定义
+- 简洁、专业、用中文回答
+- 给出明确建议，不要模棱两可
+
+## 格式规则
+- 用 Markdown 格式回答，合理使用标题（##）、加粗、列表、分隔线
+- 每个持仓或要点单独成段，不要挤在一起
+- 数字用加粗标注，如 **+$177 (50.14%)**
+- 不同持仓之间用 --- 分隔或用编号列表
+- 公式用行内代码包裹，如 `Delta = N(d1)`
+- 列出新闻时，每条必须用 Markdown 链接格式附上原文地址：[新闻标题](url字段的值)，不要省略链接
+"""
+
+
+async def positions_assistant_stream(
+    messages: list[dict],
+    context: str,
+    diagnoses: list[PositionDiagnosis],
+    *,
+    deep_thinking: bool = False,
+) -> AsyncGenerator[str, None]:
+    """Lightweight streaming chat for the positions page assistant."""
+    llm_with_tools = _llm_fast().bind_tools(POSITIONS_TOOLS)
+    prompt = _POSITIONS_ASSISTANT_PROMPT.format(context=context)
+    working = [SystemMessage(content=prompt), *_to_lc_messages(messages)]
+
+    for _round in range(_MAX_TOOL_ROUNDS):
+        try:
+            response: AIMessage = await llm_with_tools.ainvoke(working)
+        except Exception as e:
+            logger.error("Positions assistant failed: %s", e)
+            yield f"AI 服务暂时不可用: {e}"
+            return
+
+        if not response.tool_calls:
+            break
+
+        working.append(response)
+        tool_names = [tc["name"] for tc in response.tool_calls]
+        for tc in response.tool_calls:
+            logger.info("PosAssistant tool: %s(%s)", tc["name"], tc["args"])
+
+        results = await asyncio.gather(
+            *(execute_tool(tc["name"], tc["args"], diagnoses) for tc in response.tool_calls)
+        )
+        for tc, result in zip(response.tool_calls, results, strict=True):
+            working.append(ToolMessage(content=result, tool_call_id=tc["id"]))
+
+        yield f"[TOOL:{','.join(tool_names)}]"
+
+    try:
+        async for event_type, content in _stream_final(working, deep_thinking=deep_thinking):
+            if event_type == "thinking":
+                yield f"[THINKING]{content}"
+            else:
+                yield content
+    except Exception as e:
+        logger.error("Positions assistant stream error: %s", e)
+        yield f"\n\n出错: {e}"
 
 
 async def generate_title(user_message: str) -> str:

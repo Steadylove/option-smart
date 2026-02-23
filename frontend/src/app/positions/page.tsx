@@ -12,6 +12,7 @@ import { ErrorBanner } from '@/components/error-banner';
 import { AddPositionDialog } from '@/components/add-position-dialog';
 import { PortfolioSummary } from '@/components/portfolio-summary';
 import { PositionTable } from '@/components/position-table';
+import { PositionsAssistant } from '@/components/positions-assistant';
 import { usePositionAnalysis, usePositions } from '@/hooks/use-swr-api';
 import { api, type SyncResult } from '@/lib/api';
 
@@ -261,6 +262,8 @@ export default function PositionsPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <PositionsAssistant analysisData={analysis ?? null} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 """Position CRUD and analysis API routes."""
 
+import asyncio
 import logging
 import re
 import time
@@ -7,6 +8,7 @@ from datetime import date, datetime
 from threading import Lock
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -292,6 +294,55 @@ async def analyze_positions(
         _analysis_cache["result"] = (time.monotonic() + _ANALYSIS_CACHE_TTL, response)
 
     return response
+
+
+# ── Positions assistant (lightweight AI Q&A) ─────────────
+
+
+class AskRequest(BaseModel):
+    question: str
+    messages: list[dict] = []
+    context: str = ""
+    deep_thinking: bool = False
+
+
+@router.post("/ask")
+async def positions_ask(
+    body: AskRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Lightweight SSE streaming Q&A about current positions data."""
+    from backend.services.ai import positions_assistant_stream
+
+    try:
+        diagnoses = await load_diagnoses(db)
+    except Exception:
+        diagnoses = []
+
+    chat_messages = [*body.messages, {"role": "user", "content": body.question}]
+
+    def _sse_data(text: str) -> str:
+        lines = text.split("\n")
+        return "".join(f"data: {line}\n" for line in lines) + "\n"
+
+    async def event_stream():
+        async for chunk in positions_assistant_stream(
+            chat_messages, body.context, diagnoses, deep_thinking=body.deep_thinking
+        ):
+            if chunk.startswith("[TOOL:"):
+                yield f"event: tool\ndata: {chunk[6:-1]}\n\n"
+            elif chunk.startswith("[THINKING]"):
+                yield f"event: thinking\n{_sse_data(chunk[10:])}"
+            else:
+                yield _sse_data(chunk)
+            await asyncio.sleep(0)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
 
 
 # ── Sync from brokerage ─────────────────────────────────

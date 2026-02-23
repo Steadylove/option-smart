@@ -58,10 +58,11 @@ export default function SettingsPage() {
     setSaved(false);
     setError('');
     try {
+      const providerChanged = provider !== settings?.ai_provider;
       await api.updateSettings({
         watched_symbols: symbols,
         ai_provider: provider,
-        ...(apiKey ? { ai_api_key: apiKey } : {}),
+        ai_api_key: apiKey || (providerChanged ? '' : undefined),
       });
       await mutate();
       setSaved(true);
@@ -137,7 +138,11 @@ export default function SettingsPage() {
             {AI_PROVIDERS.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setProvider(p.id)}
+                onClick={() => {
+                  setProvider(p.id);
+                  setApiKey('');
+                  setShowKey(false);
+                }}
                 className={cn(
                   'rounded-lg border p-4 text-left transition-all',
                   provider === p.id
@@ -165,7 +170,9 @@ export default function SettingsPage() {
               <Input
                 type={showKey ? 'text' : 'password'}
                 placeholder={
-                  settings?.ai_api_key_set ? settings.ai_api_key_masked : t('apiKeyPlaceholder')
+                  settings?.ai_api_key_set && provider === settings.ai_provider
+                    ? settings.ai_api_key_masked
+                    : t('apiKeyPlaceholder')
                 }
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
