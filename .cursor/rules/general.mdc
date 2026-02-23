@@ -48,3 +48,16 @@ Tech stack: Next.js + TailwindCSS (frontend), Python FastAPI (backend), GLM-5 (A
 
 - Commit messages: imperative mood, concise, lowercase. e.g. `add greeks calculation engine`
 - One logical change per commit. Don't mix refactoring with features.
+
+## Pre-commit Hooks (Husky + lint-staged)
+
+The project uses `husky` + `lint-staged`. Every commit triggers:
+
+| Glob | Tool |
+|---|---|
+| `backend/**/*.py` | `.venv/bin/ruff format` → `.venv/bin/ruff check --fix` |
+| `frontend/**/*.{ts,tsx}` | `prettier --write` |
+| `frontend/**/*.{json,css,md}` | `prettier --write` |
+| `*.{json,md,yaml,yml}` | `prettier --write` |
+
+**All generated code must pass these checks before commit.** If a ruff or prettier rule conflicts with your output, fix it proactively — don't rely on the hook to auto-fix.

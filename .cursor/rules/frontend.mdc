@@ -14,6 +14,11 @@ alwaysApply: false
 - Format with `prettier`. Lint with `eslint`.
 - Use TailwindCSS for styling. No CSS modules, no styled-components.
 
+## Pre-commit Hook
+
+- `prettier --write` runs on all staged `frontend/**/*.{ts,tsx,json,css,md}` files.
+- Code must be prettier-compatible — avoid non-standard formatting that prettier would rewrite.
+
 ## Components
 
 - Functional components only. Use named exports.

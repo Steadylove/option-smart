@@ -13,6 +13,13 @@ alwaysApply: false
 - Prefer `async def` for I/O-bound endpoints.
 - Use Pydantic models for request/response schemas — never pass raw dicts across boundaries.
 
+## Ruff Lint Rules (pre-commit enforced)
+
+- **F841**: Never assign a variable that isn't used later. Remove or use it.
+- **SIM108**: Use ternary `x = a if cond else b` instead of `if/else` blocks for simple assignments.
+- **N806**: Variables inside functions must be lowercase. Don't assign class/module aliases with PascalCase inside a function; use `noqa` comment only when absolutely unavoidable.
+- Always run `ruff check` mentally before writing code. The pre-commit hook will reject violations.
+
 ## Project Structure
 
 ```
