@@ -321,14 +321,16 @@
   },
   "learn": {
     "title": "知识库",
-    "description": "期权卖方基础、Greeks 详解与策略指南",
-    "comingSoon": "即将推出",
-    "comingSoonDesc": "此功能计划在第 {phase} 阶段开发。",
-    "greeksGuide": "Greeks 指南",
-    "strategyPlaybook": "策略手册",
-    "riskManagement": "风险管理",
-    "ivConcepts": "IV 概念",
-    "realExamples": "实战案例"
+    "description": "期权卖方策略图鉴、Greeks 详解与实战心法",
+    "tabStrategies": "策略图鉴",
+    "tabGreeks": "Greeks 详解",
+    "tabTips": "卖方心法",
+    "adjustParams": "调整参数",
+    "maxProfit": "最大盈利",
+    "maxLoss": "最大亏损",
+    "breakeven": "盈亏平衡",
+    "unlimited": "无限",
+    "perContract": "每合约 (×100 股)"
   },
   "portfolio": {
     "totalDelta": "总 Delta",

@@ -321,14 +321,16 @@
   },
   "learn": {
     "title": "Knowledge Base",
-    "description": "Option selling fundamentals, Greeks explained, and strategy guides",
-    "comingSoon": "Coming Soon",
-    "comingSoonDesc": "This feature is planned for development Phase {phase}.",
-    "greeksGuide": "Greeks Guide",
-    "strategyPlaybook": "Strategy Playbook",
-    "riskManagement": "Risk Management",
-    "ivConcepts": "IV Concepts",
-    "realExamples": "Real Examples"
+    "description": "Strategy playbook, Greeks guide, and practical selling tips",
+    "tabStrategies": "Strategies",
+    "tabGreeks": "Greeks",
+    "tabTips": "Seller's Edge",
+    "adjustParams": "Adjust Params",
+    "maxProfit": "Max Profit",
+    "maxLoss": "Max Loss",
+    "breakeven": "Breakeven",
+    "unlimited": "Unlimited",
+    "perContract": "per contract (×100 shares)"
   },
   "portfolio": {
     "totalDelta": "Total Delta",
