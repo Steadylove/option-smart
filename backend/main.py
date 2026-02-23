@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.position import router as position_router
 from backend.api.quote import router as quote_router
+from backend.api.stress_test import router as stress_test_router
 from backend.config import settings
 from backend.models.database import init_db
 from backend.services.longbridge import get_cache_stats
@@ -45,6 +46,7 @@ app.add_middleware(
 
 app.include_router(quote_router)
 app.include_router(position_router)
+app.include_router(stress_test_router)
 
 
 @app.get("/api/health")

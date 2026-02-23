@@ -121,6 +121,22 @@ class PositionPnL(BaseModel):
     cost_value: float  # open_price * quantity * multiplier
 
 
+class TimeValueAnalysis(BaseModel):
+    intrinsic_value: float  # per contract
+    extrinsic_value: float  # per contract (time value)
+    time_value_pct: float  # extrinsic / price * 100
+    total_extrinsic: float  # position-level (what seller can still capture)
+    theta_7d_projected: float
+    theta_to_expiry_projected: float
+
+
+class PnLAttribution(BaseModel):
+    delta_impact_1pct: float  # P&L if spot moves +1%
+    gamma_impact_1pct: float  # quadratic impact for 1% move
+    theta_daily: float  # daily theta income
+    vega_impact_1pct: float  # P&L if IV moves +1%
+
+
 class PositionDiagnosis(BaseModel):
     position: PositionOut
     health: PositionHealth
@@ -128,11 +144,20 @@ class PositionDiagnosis(BaseModel):
     pnl: PositionPnL
     dte: int
     current_spot: float
+    current_iv: float = 0
     moneyness: str  # "ITM" / "ATM" / "OTM"
     assignment_prob: float  # delta-based
     theta_per_day: float  # daily theta income for this position
     pop: float  # probability of profit
     action_hint: str  # one-line suggestion
+    time_value: TimeValueAnalysis | None = None
+    attribution: PnLAttribution | None = None
+
+
+class ConcentrationData(BaseModel):
+    by_symbol: dict[str, float]  # symbol → pnl weight %
+    by_direction: dict[str, int]  # sell/buy → count
+    by_expiry_week: dict[str, int]  # "2025-W12" → count
 
 
 class PortfolioSummary(BaseModel):
@@ -142,11 +167,13 @@ class PortfolioSummary(BaseModel):
     total_theta: float
     total_vega: float
     total_unrealized_pnl: float
-    daily_theta_income: float  # total theta * quantity * 100
+    daily_theta_income: float
     positions_by_status: dict[str, int]
     positions_by_symbol: dict[str, int]
     positions_by_strategy: dict[str, int]
-    health_counts: dict[str, int]  # safe / warning / danger
+    health_counts: dict[str, int]
+    concentration: ConcentrationData | None = None
+    total_extrinsic_value: float = 0  # capturable time value across portfolio
 
 
 class PositionAnalysisResponse(BaseModel):
@@ -237,3 +264,65 @@ class SymbolOverview(BaseModel):
 class DashboardResponse(BaseModel):
     symbols: list[SymbolOverview]
     updated_at: str
+
+
+# ── Stress test schemas ─────────────────────────────────
+
+
+class StressScenario(BaseModel):
+    name: str
+    price_change_pct: float = 0
+    iv_change_pct: float = 0
+    days_forward: int = 0
+
+
+class StressPositionResult(BaseModel):
+    position_id: int
+    symbol: str
+    label: str  # "TQQQ $60 PUT"
+    current_pnl: float
+    scenario_pnl: float
+    pnl_change: float
+    scenario_price: float
+    scenario_delta: float
+
+
+class StressScenarioResult(BaseModel):
+    scenario: StressScenario
+    portfolio_pnl: float
+    portfolio_pnl_change: float
+    positions: list[StressPositionResult]
+
+
+class StressTestRequest(BaseModel):
+    mode: str = "price"  # "price" | "iv" | "time" | "composite" | "custom"
+    custom_scenarios: list[StressScenario] | None = None
+
+
+class StressTestResponse(BaseModel):
+    results: list[StressScenarioResult]
+    current_portfolio_pnl: float
+    updated_at: str
+
+
+# ── Decision matrix schemas ─────────────────────────────
+
+
+class ActionAlternative(BaseModel):
+    action: str
+    description: str
+    expected_pnl: float
+    pop: float
+    margin_freed: float = 0
+    net_credit: float | None = None
+    new_strike: float | None = None
+    risk: str
+    score: int
+
+
+class DecisionMatrixResponse(BaseModel):
+    position_id: int
+    label: str
+    current_pnl: float
+    health_score: int
+    actions: list[ActionAlternative]

@@ -39,6 +39,18 @@ export const api = {
     }),
   analyzePositions: () => request<PositionAnalysisResponse>('/api/positions/analysis'),
   syncPositions: () => request<SyncResult>('/api/positions/sync', { method: 'POST' }),
+
+  // Stress test
+  stressTest: (body: StressTestRequest) =>
+    request<StressTestResponse>('/api/stress-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  // Decision matrix
+  getDecisions: (positionId: number) =>
+    request<DecisionMatrixResponse>(`/api/positions/${positionId}/decisions`),
 };
 
 // Re-export types matching backend schemas
@@ -169,6 +181,22 @@ export interface PositionPnL {
   cost_value: number;
 }
 
+export interface TimeValueAnalysis {
+  intrinsic_value: number;
+  extrinsic_value: number;
+  time_value_pct: number;
+  total_extrinsic: number;
+  theta_7d_projected: number;
+  theta_to_expiry_projected: number;
+}
+
+export interface PnLAttribution {
+  delta_impact_1pct: number;
+  gamma_impact_1pct: number;
+  theta_daily: number;
+  vega_impact_1pct: number;
+}
+
 export interface PositionDiagnosis {
   position: PositionOut;
   health: PositionHealth;
@@ -176,11 +204,20 @@ export interface PositionDiagnosis {
   pnl: PositionPnL;
   dte: number;
   current_spot: number;
+  current_iv: number;
   moneyness: string;
   assignment_prob: number;
   theta_per_day: number;
   pop: number;
   action_hint: string;
+  time_value: TimeValueAnalysis | null;
+  attribution: PnLAttribution | null;
+}
+
+export interface ConcentrationData {
+  by_symbol: Record<string, number>;
+  by_direction: Record<string, number>;
+  by_expiry_week: Record<string, number>;
 }
 
 export interface PortfolioSummary {
@@ -195,6 +232,8 @@ export interface PortfolioSummary {
   positions_by_symbol: Record<string, number>;
   positions_by_strategy: Record<string, number>;
   health_counts: Record<string, number>;
+  concentration: ConcentrationData | null;
+  total_extrinsic_value: number;
 }
 
 export interface PositionAnalysisResponse {
@@ -207,4 +246,64 @@ export interface SyncResult {
   synced: number;
   skipped: number;
   details: string[];
+}
+
+// ── Stress test types ──────────────────────────────────
+
+export interface StressScenario {
+  name: string;
+  price_change_pct: number;
+  iv_change_pct: number;
+  days_forward: number;
+}
+
+export interface StressPositionResult {
+  position_id: number;
+  symbol: string;
+  label: string;
+  current_pnl: number;
+  scenario_pnl: number;
+  pnl_change: number;
+  scenario_price: number;
+  scenario_delta: number;
+}
+
+export interface StressScenarioResult {
+  scenario: StressScenario;
+  portfolio_pnl: number;
+  portfolio_pnl_change: number;
+  positions: StressPositionResult[];
+}
+
+export interface StressTestRequest {
+  mode: 'price' | 'iv' | 'time' | 'composite' | 'custom';
+  custom_scenarios?: StressScenario[];
+}
+
+export interface StressTestResponse {
+  results: StressScenarioResult[];
+  current_portfolio_pnl: number;
+  updated_at: string;
+}
+
+// ── Decision matrix types ──────────────────────────────
+
+export interface ActionAlternative {
+  action: string;
+  description: string;
+  expected_pnl: number;
+  pop: number;
+  margin_freed: number;
+  net_credit: number | null;
+  new_strike: number | null;
+  risk: string;
+  score: number;
+}
+
+export interface DecisionMatrixResponse {
+  position_id: number;
+  label: string;
+  current_pnl: number;
+  health_score: number;
+  actions: ActionAlternative[];
 }

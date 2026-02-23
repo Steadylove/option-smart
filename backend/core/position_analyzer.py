@@ -5,13 +5,16 @@ import logging
 from backend.config import settings
 from backend.core.greeks import calc_greeks, calc_pop, market_dte
 from backend.models.schemas import (
+    ConcentrationData,
     HealthLevel,
+    PnLAttribution,
     PortfolioSummary,
     PositionDiagnosis,
     PositionGreeks,
     PositionHealth,
     PositionOut,
     PositionPnL,
+    TimeValueAnalysis,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,11 +197,14 @@ def diagnose_stock_position(
         ),
         dte=0,
         current_spot=spot_price,
+        current_iv=0,
         moneyness="N/A",
         assignment_prob=0,
         theta_per_day=0,
         pop=0,
         action_hint=hint,
+        time_value=None,
+        attribution=None,
     )
 
 
@@ -248,6 +254,31 @@ def diagnose_position(
     pop = calc_pop(greeks.delta)
     hint = _action_hint(pos.direction, money, dte, pnl_pct, health.level)
 
+    # Time value breakdown
+    is_call = pos.option_type == "call"
+    intrinsic = max(spot_price - pos.strike, 0) if is_call else max(pos.strike - spot_price, 0)
+    extrinsic = max(current_option_price - intrinsic, 0)
+    tv_pct = (extrinsic / current_option_price * 100) if current_option_price > 0 else 0
+    total_extrinsic = extrinsic * pos.quantity * MULTIPLIER
+
+    time_value = TimeValueAnalysis(
+        intrinsic_value=round(intrinsic, 4),
+        extrinsic_value=round(extrinsic, 4),
+        time_value_pct=round(tv_pct, 1),
+        total_extrinsic=round(total_extrinsic, 2),
+        theta_7d_projected=round(pos_theta * 7, 2),
+        theta_to_expiry_projected=round(pos_theta * dte, 2),
+    )
+
+    # P&L attribution — instantaneous Greek sensitivities
+    spot_1pct = spot_price * 0.01
+    attribution = PnLAttribution(
+        delta_impact_1pct=round(pos_delta * spot_1pct, 2),
+        gamma_impact_1pct=round(0.5 * pos_gamma * spot_1pct**2, 2),
+        theta_daily=round(pos_theta, 2),
+        vega_impact_1pct=round(pos_vega, 2),
+    )
+
     return PositionDiagnosis(
         position=pos,
         health=health,
@@ -267,11 +298,14 @@ def diagnose_position(
         ),
         dte=dte,
         current_spot=spot_price,
+        current_iv=iv,
         moneyness=money,
         assignment_prob=round(delta_abs * 100, 1),
         theta_per_day=round(pos_theta, 2),
         pop=pop,
         action_hint=hint,
+        time_value=time_value,
+        attribution=attribution,
     )
 
 
@@ -290,6 +324,12 @@ def build_portfolio_summary(
     by_strategy: dict[str, int] = {}
     health_counts: dict[str, int] = {"safe": 0, "warning": 0, "danger": 0}
 
+    # Concentration tracking
+    cost_by_symbol: dict[str, float] = {}
+    by_direction: dict[str, int] = {}
+    by_expiry_week: dict[str, int] = {}
+    total_extrinsic = 0.0
+
     for d in diagnoses:
         p = d.position
         by_status[p.status] = by_status.get(p.status, 0) + 1
@@ -297,6 +337,21 @@ def build_portfolio_summary(
         by_symbol[sym] = by_symbol.get(sym, 0) + 1
         by_strategy[p.strategy] = by_strategy.get(p.strategy, 0) + 1
         health_counts[d.health.level.value] = health_counts.get(d.health.level.value, 0) + 1
+
+        cost_by_symbol[sym] = cost_by_symbol.get(sym, 0) + d.pnl.cost_value
+        by_direction[p.direction] = by_direction.get(p.direction, 0) + 1
+
+        if p.expiry:
+            iso_week = p.expiry.isocalendar()
+            week_key = f"{iso_week[0]}-W{iso_week[1]:02d}"
+            by_expiry_week[week_key] = by_expiry_week.get(week_key, 0) + 1
+
+        if d.time_value:
+            total_extrinsic += d.time_value.total_extrinsic
+
+    # Convert cost to percentage weights
+    total_cost = sum(cost_by_symbol.values()) or 1
+    symbol_pct = {s: round(v / total_cost * 100, 1) for s, v in cost_by_symbol.items()}
 
     return PortfolioSummary(
         total_positions=len(diagnoses),
@@ -310,4 +365,10 @@ def build_portfolio_summary(
         positions_by_symbol=by_symbol,
         positions_by_strategy=by_strategy,
         health_counts=health_counts,
+        concentration=ConcentrationData(
+            by_symbol=symbol_pct,
+            by_direction=by_direction,
+            by_expiry_week=by_expiry_week,
+        ),
+        total_extrinsic_value=round(total_extrinsic, 2),
     )

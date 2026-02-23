@@ -11,14 +11,14 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.position_analyzer import (
-    build_portfolio_summary,
-    diagnose_position,
-    diagnose_stock_position,
-)
+from backend.config import settings
+from backend.core.decision_matrix import build_decision_matrix
+from backend.core.position_analyzer import build_portfolio_summary
 from backend.models.database import get_db
 from backend.models.position import Position
 from backend.models.schemas import (
+    ActionAlternative,
+    DecisionMatrixResponse,
     HealthLevel,
     PositionAnalysisResponse,
     PositionCreate,
@@ -30,9 +30,8 @@ from backend.services.longbridge import (
 )
 from backend.services.longbridge import (
     get_account_positions,
-    get_option_quotes,
-    get_stock_quotes,
 )
+from backend.services.portfolio import load_diagnoses
 
 # ── Analysis result cache ────────────────────────────────
 _analysis_cache: dict[str, tuple[float, object]] = {}
@@ -197,7 +196,6 @@ async def analyze_positions(
     db: AsyncSession = Depends(get_db),
 ):
     """Full portfolio analysis with server-side result caching."""
-    # Return cached result if fresh enough
     with _analysis_cache_lock:
         if "result" in _analysis_cache:
             expires_at, cached_result = _analysis_cache["result"]
@@ -205,56 +203,11 @@ async def analyze_positions(
                 logger.debug("Analysis cache HIT")
                 return cached_result
 
-    stmt = (
-        select(Position)
-        .where(Position.status == "open")
-        .order_by(Position.position_type, Position.expiry)
-    )
-    result = await db.execute(stmt)
-    positions = result.scalars().all()
-
-    if not positions:
-        empty_response = PositionAnalysisResponse(
-            portfolio=build_portfolio_summary([]),
-            positions=[],
-            updated_at=datetime.now().isoformat(),
-        )
-        return empty_response
-
-    symbol_set = {p.symbol for p in positions}
-    option_symbols = [
-        p.option_symbol for p in positions if p.position_type == "option" and p.option_symbol
-    ]
-
     try:
-        stock_data = get_stock_quotes(tuple(sorted(symbol_set)))
-        spot_map = {q["symbol"]: float(q["last_done"]) for q in stock_data}
+        diagnoses = await load_diagnoses(db)
     except Exception as e:
-        logger.error("Failed to fetch spot prices: %s", e)
+        logger.error("Failed to build portfolio analysis: %s", e)
         raise HTTPException(502, "Failed to fetch market data")
-
-    opt_map: dict[str, dict] = {}
-    if option_symbols:
-        try:
-            opt_data = get_option_quotes(tuple(sorted(option_symbols)))
-            opt_map = {q["symbol"]: q for q in opt_data}
-        except Exception as e:
-            logger.warning("Failed to fetch option quotes: %s — using fallback", e)
-
-    diagnoses = []
-    for pos in positions:
-        pos_out = PositionOut.model_validate(pos)
-        spot = spot_map.get(pos.symbol, 0)
-
-        if pos.position_type == "option" and pos.option_symbol:
-            oq = opt_map.get(pos.option_symbol)
-            current_price = float(oq["last_done"]) if oq else pos.open_price
-            iv = float(oq["implied_volatility"]) if oq and oq.get("implied_volatility") else 0.5
-            diag = diagnose_position(pos_out, spot, current_price, iv)
-        else:
-            diag = diagnose_stock_position(pos_out, spot)
-
-        diagnoses.append(diag)
 
     priority = {HealthLevel.danger: 0, HealthLevel.warning: 1, HealthLevel.safe: 2}
     diagnoses.sort(key=lambda d: (priority.get(d.health.level, 9), d.dte))
@@ -394,3 +347,43 @@ async def sync_positions_from_broker(
 
     logger.info("Position sync complete: %d synced, %d skipped", synced, skipped)
     return SyncResult(synced=synced, skipped=skipped, details=details)
+
+
+# ── Decision matrix ──────────────────────────────────────
+
+
+@router.get("/{position_id}/decisions", response_model=DecisionMatrixResponse)
+async def get_decision_matrix(
+    position_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate action alternatives for a single position."""
+    try:
+        diagnoses = await load_diagnoses(db)
+    except Exception as e:
+        logger.error("Failed to load portfolio for decisions: %s", e)
+        raise HTTPException(502, "Failed to fetch market data")
+
+    diag = next((d for d in diagnoses if d.position.id == position_id), None)
+    if not diag:
+        raise HTTPException(404, "Position not found or not open")
+
+    p = diag.position
+    underlying = p.symbol if ".US" in p.symbol else f"{p.symbol}.US"
+    q = settings.dividend_yields.get(underlying, 0.0)
+
+    actions_raw = build_decision_matrix(diag, settings.risk_free_rate, q)
+    actions = [ActionAlternative(**a) for a in actions_raw]
+
+    sym = p.symbol.replace(".US", "")
+    label = (
+        f"{sym} ${p.strike} {(p.option_type or '').upper()}" if p.position_type == "option" else sym
+    )
+
+    return DecisionMatrixResponse(
+        position_id=position_id,
+        label=label,
+        current_pnl=diag.pnl.unrealized_pnl,
+        health_score=diag.health.score,
+        actions=actions,
+    )

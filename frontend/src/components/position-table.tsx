@@ -11,6 +11,7 @@ import {
   TrendingUp,
   TrendingDown,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { api, type PositionDiagnosis } from '@/lib/api';
+import { api, type PositionDiagnosis, type DecisionMatrixResponse } from '@/lib/api';
 
 const HEALTH_CONFIG = {
   safe: {
@@ -75,6 +76,8 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [decisions, setDecisions] = useState<DecisionMatrixResponse | null>(null);
+  const [decisionsLoading, setDecisionsLoading] = useState(false);
 
   async function handleDelete() {
     if (deleteId === null) return;
@@ -85,6 +88,29 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
       onRefresh();
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadDecisions(positionId: number) {
+    setDecisionsLoading(true);
+    setDecisions(null);
+    try {
+      const res = await api.getDecisions(positionId);
+      setDecisions(res);
+    } catch {
+      setDecisions(null);
+    } finally {
+      setDecisionsLoading(false);
+    }
+  }
+
+  function handleExpand(id: number) {
+    if (expanded === id) {
+      setExpanded(null);
+      setDecisions(null);
+    } else {
+      setExpanded(id);
+      loadDecisions(id);
     }
   }
 
@@ -136,7 +162,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                   >
                     <TableCell className="px-2">
                       <button
-                        onClick={() => setExpanded(isExpanded ? null : p.id)}
+                        onClick={() => handleExpand(p.id)}
                         className="rounded p-0.5 hover:bg-accent"
                       >
                         {isExpanded ? (
@@ -270,91 +296,80 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                   {isExpanded && (
                     <TableRow className="border-border bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={11} className="p-4">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                           {/* Diagnosis */}
                           <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
                               Diagnosis
                             </p>
                             <div className="space-y-1.5">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Status</span>
+                              <DetailRow label="Status">
                                 <Badge
                                   variant="outline"
                                   className={cn('text-[10px]', h.border, h.color)}
                                 >
                                   {d.health.zone}
                                 </Badge>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Type</span>
-                                <span className="font-medium capitalize">{p.position_type}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Spot Price</span>
+                              </DetailRow>
+                              <DetailRow label="Spot Price">
                                 <span className="font-mono">${d.current_spot.toFixed(2)}</span>
-                              </div>
+                              </DetailRow>
                               {isOption && (
                                 <>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Moneyness</span>
+                                  <DetailRow label="Moneyness">
                                     <span className="font-medium">{d.moneyness}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Assignment Prob</span>
+                                  </DetailRow>
+                                  <DetailRow label="IV">
+                                    <span className="font-mono">
+                                      {(d.current_iv * 100).toFixed(1)}%
+                                    </span>
+                                  </DetailRow>
+                                  <DetailRow label="Assignment Prob">
                                     <span className="font-mono">
                                       {d.assignment_prob.toFixed(1)}%
                                     </span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Profit Prob</span>
+                                  </DetailRow>
+                                  <DetailRow label="Profit Prob">
                                     <span className="font-mono">{d.pop.toFixed(1)}%</span>
-                                  </div>
+                                  </DetailRow>
                                 </>
                               )}
                               {!isOption && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Cost Basis</span>
+                                <DetailRow label="Cost Basis">
                                   <span className="font-mono">${d.pnl.cost_value.toFixed(2)}</span>
-                                </div>
+                                </DetailRow>
                               )}
                             </div>
                           </div>
 
-                          {/* Full Greeks / P&L detail */}
+                          {/* Greeks */}
                           <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
-                              {isOption ? 'Position Greeks' : 'Position Detail'}
+                              Position Greeks
                             </p>
                             <div className="space-y-1.5">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Delta</span>
+                              <DetailRow label="Delta">
                                 <span className="font-mono">{d.greeks.delta.toFixed(2)}</span>
-                              </div>
+                              </DetailRow>
                               {isOption && (
                                 <>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Gamma</span>
+                                  <DetailRow label="Gamma">
                                     <span className="font-mono">{d.greeks.gamma.toFixed(4)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Theta</span>
+                                  </DetailRow>
+                                  <DetailRow label="Theta">
                                     <span className="font-mono">
                                       ${d.greeks.theta.toFixed(2)}/day
                                     </span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Vega</span>
+                                  </DetailRow>
+                                  <DetailRow label="Vega">
                                     <span className="font-mono">{d.greeks.vega.toFixed(2)}</span>
-                                  </div>
+                                  </DetailRow>
                                 </>
                               )}
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Market Value</span>
+                              <DetailRow label="Market Value">
                                 <span className="font-mono">${d.pnl.market_value.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Unrealized P&L</span>
+                              </DetailRow>
+                              <DetailRow label="Unrealized P&L">
                                 <span
                                   className={cn(
                                     'font-mono',
@@ -363,11 +378,70 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                                 >
                                   {pnlPositive ? '+' : ''}${d.pnl.unrealized_pnl.toFixed(2)}
                                 </span>
-                              </div>
+                              </DetailRow>
                             </div>
                           </div>
 
-                          {/* Action hint */}
+                          {/* Time Value & Attribution (option only) */}
+                          {isOption && d.time_value && d.attribution && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                                Time Value & Sensitivity
+                              </p>
+                              <div className="space-y-1.5">
+                                <DetailRow label="Intrinsic">
+                                  <span className="font-mono">
+                                    ${d.time_value.intrinsic_value.toFixed(2)}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="Extrinsic">
+                                  <span className="font-mono">
+                                    ${d.time_value.extrinsic_value.toFixed(2)}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="Time Value %">
+                                  <span className="font-mono">
+                                    {d.time_value.time_value_pct.toFixed(0)}%
+                                  </span>
+                                </DetailRow>
+                                {/* Time value progress bar */}
+                                <div className="pt-1">
+                                  <div className="h-1.5 w-full rounded-full bg-muted">
+                                    <div
+                                      className="h-1.5 rounded-full bg-primary"
+                                      style={{
+                                        width: `${Math.min(d.time_value.time_value_pct, 100)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                                    <span>Intrinsic</span>
+                                    <span>Time Value</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Greek impact bars */}
+                              <div className="mt-3 space-y-1">
+                                <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                                  Impact per 1% move
+                                </p>
+                                <ImpactBar
+                                  label="Delta (spot ±1%)"
+                                  value={d.attribution.delta_impact_1pct}
+                                />
+                                <ImpactBar
+                                  label="Vega (IV ±1%)"
+                                  value={d.attribution.vega_impact_1pct}
+                                />
+                                <ImpactBar
+                                  label="Theta (1 day)"
+                                  value={d.attribution.theta_daily}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Recommendation & Projections */}
                           <div className="space-y-3">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">
                               Recommendation
@@ -375,6 +449,44 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                             <p className="text-sm leading-relaxed text-foreground/90">
                               {d.action_hint}
                             </p>
+                            {isOption && d.time_value && (
+                              <div className="rounded-md bg-muted/50 p-3">
+                                <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                                  Theta Projection
+                                </p>
+                                <div className="mt-1.5 space-y-1">
+                                  <DetailRow label="Next 7 days">
+                                    <span
+                                      className={cn(
+                                        'font-mono',
+                                        d.time_value.theta_7d_projected > 0
+                                          ? 'text-green-400'
+                                          : 'text-red-400',
+                                      )}
+                                    >
+                                      ${d.time_value.theta_7d_projected.toFixed(2)}
+                                    </span>
+                                  </DetailRow>
+                                  <DetailRow label="To expiry">
+                                    <span
+                                      className={cn(
+                                        'font-mono',
+                                        d.time_value.theta_to_expiry_projected > 0
+                                          ? 'text-green-400'
+                                          : 'text-red-400',
+                                      )}
+                                    >
+                                      ${d.time_value.theta_to_expiry_projected.toFixed(2)}
+                                    </span>
+                                  </DetailRow>
+                                  <DetailRow label="Capturable">
+                                    <span className="font-mono text-blue-400">
+                                      ${d.time_value.total_extrinsic.toFixed(2)}
+                                    </span>
+                                  </DetailRow>
+                                </div>
+                              </div>
+                            )}
                             <div className="space-y-1 text-[11px] text-muted-foreground">
                               <p>Opened: {p.open_date}</p>
                               {p.expiry && <p>Expires: {p.expiry}</p>}
@@ -382,6 +494,109 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                             </div>
                           </div>
                         </div>
+
+                        {/* Decision matrix */}
+                        {isOption && (
+                          <div className="col-span-full mt-2 border-t border-border pt-4">
+                            <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
+                              Action Alternatives
+                            </p>
+                            {decisionsLoading && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Loading decisions...
+                              </div>
+                            )}
+                            {decisions && decisions.position_id === p.id && (
+                              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {decisions.actions.map((action) => (
+                                  <div
+                                    key={action.action}
+                                    className={cn(
+                                      'rounded-lg border p-3',
+                                      action.score >= 70
+                                        ? 'border-green-500/30 bg-green-500/5'
+                                        : action.score >= 50
+                                          ? 'border-border bg-muted/30'
+                                          : 'border-border bg-background',
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-semibold">{action.action}</span>
+                                      <span
+                                        className={cn(
+                                          'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                                          action.score >= 70
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : action.score >= 50
+                                              ? 'bg-yellow-500/20 text-yellow-400'
+                                              : 'bg-muted text-muted-foreground',
+                                        )}
+                                      >
+                                        {action.score}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-[10px] text-muted-foreground">
+                                      {action.description}
+                                    </p>
+                                    <div className="mt-2 space-y-1">
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className="text-muted-foreground">Expected P&L</span>
+                                        <span
+                                          className={cn(
+                                            'font-mono font-medium',
+                                            action.expected_pnl >= 0
+                                              ? 'text-green-400'
+                                              : 'text-red-400',
+                                          )}
+                                        >
+                                          {action.expected_pnl >= 0 ? '+' : ''}$
+                                          {action.expected_pnl.toFixed(0)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className="text-muted-foreground">POP</span>
+                                        <span className="font-mono">{action.pop.toFixed(0)}%</span>
+                                      </div>
+                                      {action.net_credit !== null && (
+                                        <div className="flex justify-between text-[10px]">
+                                          <span className="text-muted-foreground">Net Credit</span>
+                                          <span
+                                            className={cn(
+                                              'font-mono',
+                                              action.net_credit >= 0
+                                                ? 'text-green-400'
+                                                : 'text-red-400',
+                                            )}
+                                          >
+                                            ${action.net_credit.toFixed(2)}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {action.margin_freed > 0 && (
+                                        <div className="flex justify-between text-[10px]">
+                                          <span className="text-muted-foreground">Margin Free</span>
+                                          <span className="font-mono text-blue-400">
+                                            ${action.margin_freed.toFixed(0)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground">
+                                      {action.risk}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {!decisionsLoading &&
+                              (!decisions || decisions.position_id !== p.id) && (
+                                <p className="text-xs text-muted-foreground">
+                                  Unable to load decision matrix
+                                </p>
+                              )}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
@@ -412,5 +627,38 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function ImpactBar({ label, value }: { label: string; value: number }) {
+  const maxWidth = 60;
+  const absValue = Math.abs(value);
+  const width = Math.min(absValue / 10, 1) * maxWidth;
+  const isPositive = value >= 0;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-24 text-[10px] text-muted-foreground">{label}</span>
+      <div className="flex flex-1 items-center gap-1">
+        <div
+          className={cn('h-1.5 rounded-full', isPositive ? 'bg-green-500/60' : 'bg-red-500/60')}
+          style={{ width: `${Math.max(width, 2)}%` }}
+        />
+        <span
+          className={cn('font-mono text-[10px]', isPositive ? 'text-green-400' : 'text-red-400')}
+        >
+          {isPositive ? '+' : ''}${value.toFixed(0)}
+        </span>
+      </div>
+    </div>
   );
 }

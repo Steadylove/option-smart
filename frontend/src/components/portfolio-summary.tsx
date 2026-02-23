@@ -1,6 +1,14 @@
 'use client';
 
-import { TrendingDown, TrendingUp, Activity, Shield, AlertTriangle, XCircle } from 'lucide-react';
+import {
+  TrendingDown,
+  TrendingUp,
+  Activity,
+  Shield,
+  AlertTriangle,
+  XCircle,
+  DollarSign,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { PortfolioSummary as PortfolioSummaryType } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -8,6 +16,18 @@ import { cn } from '@/lib/utils';
 interface PortfolioSummaryProps {
   data: PortfolioSummaryType;
 }
+
+const SYMBOL_COLORS: Record<string, string> = {
+  TQQQ: 'bg-blue-500',
+  TSLL: 'bg-red-500',
+  NVDL: 'bg-green-500',
+};
+
+const DIRECTION_LABELS: Record<string, string> = {
+  sell: 'Short',
+  buy: 'Long',
+  long: 'Long',
+};
 
 export function PortfolioSummary({ data }: PortfolioSummaryProps) {
   const metrics = [
@@ -66,7 +86,7 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
         ))}
       </div>
 
-      {/* Health & distribution */}
+      {/* Health, distribution & concentration */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {/* Health counts */}
         {(['safe', 'warning', 'danger'] as const).map((level) => {
@@ -87,26 +107,166 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
           );
         })}
 
-        {/* Symbol distribution */}
+        {/* Capturable time value */}
         <Card className="border-border">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">By Symbol</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {Object.entries(data.positions_by_symbol).map(([sym, count]) => (
-                <span
-                  key={sym}
-                  className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                >
-                  {sym} ×{count}
-                </span>
-              ))}
-              {Object.keys(data.positions_by_symbol).length === 0 && (
-                <span className="text-xs text-muted-foreground">No positions</span>
-              )}
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+              <DollarSign className="h-4 w-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-blue-400">
+                ${data.total_extrinsic_value.toFixed(0)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Capturable Value</p>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Concentration analysis */}
+      {data.concentration && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {/* Symbol concentration bar */}
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">Symbol Concentration</p>
+              <div className="mt-3 space-y-2">
+                {Object.entries(data.concentration.by_symbol)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([sym, pct]) => (
+                    <div key={sym} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-medium">{sym}</span>
+                        <span className="text-muted-foreground">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            'h-1.5 rounded-full',
+                            SYMBOL_COLORS[sym] || 'bg-primary',
+                            pct > 60 && 'opacity-100',
+                          )}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                {Object.keys(data.concentration.by_symbol).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No positions</p>
+                )}
+                {/* Concentration warning */}
+                {Object.values(data.concentration.by_symbol).some((v) => v > 60) && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md bg-yellow-500/10 px-2 py-1.5">
+                    <AlertTriangle className="h-3 w-3 text-yellow-400" />
+                    <span className="text-[10px] text-yellow-400">
+                      High concentration — consider diversifying
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Direction distribution */}
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">Direction Distribution</p>
+              <div className="mt-3 space-y-2">
+                {Object.entries(data.concentration.by_direction).map(([dir, count]) => {
+                  const total = Object.values(data.concentration!.by_direction).reduce(
+                    (a, b) => a + b,
+                    0,
+                  );
+                  const pct = total > 0 ? (count / total) * 100 : 0;
+                  return (
+                    <div key={dir} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-medium">{DIRECTION_LABELS[dir] || dir}</span>
+                        <span className="text-muted-foreground">
+                          {count} ({pct.toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            'h-1.5 rounded-full',
+                            dir === 'sell' ? 'bg-orange-500' : 'bg-emerald-500',
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Strategy breakdown */}
+              <div className="mt-4">
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                  By Strategy
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {Object.entries(data.positions_by_strategy).map(([strat, count]) => (
+                    <span
+                      key={strat}
+                      className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase text-primary"
+                    >
+                      {strat} ×{count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Expiry concentration */}
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">Expiry Distribution</p>
+              <div className="mt-3 space-y-2">
+                {Object.entries(data.concentration.by_expiry_week)
+                  .sort()
+                  .map(([week, count]) => {
+                    const total = Object.values(data.concentration!.by_expiry_week).reduce(
+                      (a, b) => a + b,
+                      0,
+                    );
+                    const pct = total > 0 ? (count / total) * 100 : 0;
+                    return (
+                      <div key={week} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-medium">{week}</span>
+                          <span className="text-muted-foreground">
+                            {count} position{count > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted">
+                          <div
+                            className="h-1.5 rounded-full bg-violet-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                {Object.keys(data.concentration.by_expiry_week).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No dated positions</p>
+                )}
+                {/* Cluster warning */}
+                {Object.values(data.concentration.by_expiry_week).some(
+                  (v) => v >= 3 && data.total_positions > 3,
+                ) && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md bg-yellow-500/10 px-2 py-1.5">
+                    <AlertTriangle className="h-3 w-3 text-yellow-400" />
+                    <span className="text-[10px] text-yellow-400">
+                      Multiple contracts expiring same week
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

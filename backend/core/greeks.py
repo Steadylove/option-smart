@@ -143,6 +143,36 @@ def calc_annualized_return(premium: float, margin: float, dte: int) -> float:
     return round(premium / margin * 365 / dte * 100, 2)
 
 
+def calc_option_price(
+    spot: float,
+    strike: float,
+    dte: int,
+    iv: float,
+    rate: float = 0.043,
+    q: float = 0.0,
+    is_call: bool = True,
+) -> float:
+    """BSM theoretical option price for repricing under stress scenarios."""
+    if dte <= 0 or iv <= 0:
+        sign = 1 if is_call else -1
+        return max(sign * (spot - strike), 0)
+
+    t = dte / 365.0
+    sqrt_t = math.sqrt(t)
+
+    d1 = (math.log(spot / strike) + (rate - q + 0.5 * iv**2) * t) / (iv * sqrt_t)
+    d2 = d1 - iv * sqrt_t
+
+    if is_call:
+        price = spot * math.exp(-q * t) * norm.cdf(d1) - strike * math.exp(-rate * t) * norm.cdf(d2)
+    else:
+        price = strike * math.exp(-rate * t) * norm.cdf(-d2) - spot * math.exp(-q * t) * norm.cdf(
+            -d1
+        )
+
+    return max(price, 0)
+
+
 def calc_iv_rank(current_iv: float, iv_history: list[float]) -> float:
     """IV Rank: where current IV sits in 52-week range (0-100)."""
     if not iv_history:
