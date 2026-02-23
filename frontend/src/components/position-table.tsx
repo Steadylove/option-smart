@@ -145,6 +145,9 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
               <TableHead className="text-center">{t('thDte')}</TableHead>
               <TableHead className="text-center">{t('thDelta')}</TableHead>
               <TableHead className="text-center">{t('thThetaDay')}</TableHead>
+              <TableHead className="text-right">
+                <span>{t('thMargin')}</span>
+              </TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -284,6 +287,59 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
                         ${Math.abs(d.theta_per_day).toFixed(2)}
                       </span>
                     </TableCell>
+                    <TableCell className="text-right">
+                      {d.estimated_margin > 0 ? (
+                        <div className="space-y-0.5">
+                          <div>
+                            <span className="font-mono text-sm">
+                              $
+                              {d.estimated_margin.toLocaleString(undefined, {
+                                maximumFractionDigits: 0,
+                              })}
+                            </span>
+                            <span className="ml-0.5 text-[9px] text-muted-foreground">
+                              {t('estimated')}
+                            </span>
+                          </div>
+                          {d.margin_return_ann > 0 && (
+                            <p className="text-[10px]">
+                              <span className="text-muted-foreground">{t('marginAnn')}</span>{' '}
+                              <span
+                                className={cn(
+                                  'font-mono font-medium',
+                                  d.margin_return_ann >= 20
+                                    ? 'text-green-400'
+                                    : d.margin_return_ann >= 10
+                                      ? 'text-yellow-400'
+                                      : 'text-red-400',
+                                )}
+                              >
+                                {d.margin_return_ann.toFixed(1)}%
+                              </span>
+                            </p>
+                          )}
+                          {d.risk_return_ann > 0 && (
+                            <p className="text-[10px]">
+                              <span className="text-muted-foreground">{t('riskAdj')}</span>{' '}
+                              <span
+                                className={cn(
+                                  'font-mono font-medium',
+                                  d.risk_return_ann >= 5
+                                    ? 'text-green-400'
+                                    : d.risk_return_ann >= 2
+                                      ? 'text-yellow-400'
+                                      : 'text-red-400',
+                                )}
+                              >
+                                {d.risk_return_ann.toFixed(1)}%
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="px-2">
                       <button
                         onClick={() => setDeleteId(p.id)}
@@ -296,7 +352,7 @@ export function PositionTable({ positions, onRefresh }: PositionTableProps) {
 
                   {isExpanded && (
                     <TableRow className="border-border bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={11} className="p-4">
+                      <TableCell colSpan={12} className="p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                           <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase text-muted-foreground">

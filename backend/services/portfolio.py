@@ -8,10 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.market_hours import is_us_market_open
-from backend.core.position_analyzer import diagnose_position, diagnose_stock_position
+from backend.core.position_analyzer import (
+    MULTIPLIER,
+    diagnose_position,
+    diagnose_stock_position,
+    estimate_position_margin,
+)
 from backend.models.position import Position
 from backend.models.schemas import PositionDiagnosis, PositionOut
 from backend.services.longbridge import get_option_quotes, get_stock_quotes
+from backend.services.margin import get_im_factor
 
 logger = logging.getLogger(__name__)
 
@@ -92,4 +98,48 @@ async def _fetch_diagnoses(db: AsyncSession) -> list[PositionDiagnosis]:
 
         diagnoses.append(diag)
 
+    _apply_margin_estimates(diagnoses)
     return diagnoses
+
+
+def _apply_margin_estimates(diagnoses: list[PositionDiagnosis]) -> None:
+    """Post-process: estimate margin using broker's actual margin factors."""
+    stock_syms = {
+        d.position.symbol
+        for d in diagnoses
+        if d.position.position_type == "stock" and d.position.direction in ("buy", "long")
+    }
+
+    for d in diagnoses:
+        p = d.position
+        is_covered = (
+            p.position_type == "option"
+            and p.direction == "sell"
+            and p.option_type == "call"
+            and p.symbol in stock_syms
+        )
+        d.estimated_margin = estimate_position_margin(
+            direction=p.direction,
+            option_type=p.option_type,
+            position_type=p.position_type,
+            spot=d.current_spot,
+            strike=p.strike,
+            option_price=d.pnl.current_price,
+            quantity=p.quantity,
+            is_covered=is_covered,
+            im_factor=get_im_factor(p.symbol),
+        )
+
+        if d.theta_per_day > 0 and p.position_type == "option":
+            # 保证金年化: 每 $1 保证金的年化 theta 收益
+            if d.estimated_margin > 0:
+                d.margin_return_ann = round(d.theta_per_day * 365 / d.estimated_margin * 100, 1)
+
+            # risk-adjusted ann.: theta relative to max potential loss
+            # put max_loss = strike * 100 * qty; call uses 2x spot as proxy
+            if p.option_type == "put" and p.strike:
+                max_loss = p.strike * MULTIPLIER * p.quantity
+            else:
+                max_loss = d.current_spot * 2 * MULTIPLIER * p.quantity
+            if max_loss > 0:
+                d.risk_return_ann = round(d.theta_per_day * 365 / max_loss * 100, 1)

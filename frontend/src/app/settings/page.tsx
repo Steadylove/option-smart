@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { Plus, X, Check, Eye, EyeOff, Bot, Tag, Loader2 } from 'lucide-react';
+import { Plus, X, Check, Eye, EyeOff, Bot, Tag, Loader2, RefreshCw, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [refreshingMargin, setRefreshingMargin] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -180,6 +181,71 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">{t('apiKeyHint')}</p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Margin Ratios */}
+      <Card className="border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">{t('marginTitle')}</CardTitle>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={refreshingMargin}
+              onClick={async () => {
+                setRefreshingMargin(true);
+                try {
+                  await api.refreshMarginRatios();
+                  await mutate();
+                } finally {
+                  setRefreshingMargin(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', refreshingMargin && 'animate-spin')} />
+              {t('marginRefresh')}
+            </Button>
+          </div>
+          <CardDescription>{t('marginDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {settings?.margin_ratios && settings.margin_ratios.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="pb-2 text-left font-medium">{t('marginSymbol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('marginInit')}</th>
+                    <th className="pb-2 text-right font-medium">{t('marginMaint')}</th>
+                    <th className="pb-2 text-right font-medium">{t('marginForced')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settings.margin_ratios.map((r) => (
+                    <tr key={r.symbol} className="border-b border-border/50 last:border-0">
+                      <td className="py-2.5 font-semibold">{r.symbol.replace('.US', '')}</td>
+                      <td className="py-2.5 text-right font-mono">
+                        {(r.im_factor * 100).toFixed(0)}%
+                      </td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground">
+                        {(r.mm_factor * 100).toFixed(0)}%
+                      </td>
+                      <td className="py-2.5 text-right font-mono text-muted-foreground">
+                        {(r.fm_factor * 100).toFixed(0)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('marginEmpty')}</p>
+          )}
         </CardContent>
       </Card>
 

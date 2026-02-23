@@ -17,9 +17,11 @@ from backend.api.stress_test import router as stress_test_router
 from backend.config import settings
 from backend.models.chat import ChatConversation  # noqa: F401 — register tables
 from backend.models.database import init_db
+from backend.models.margin_ratio import SymbolMarginRatio  # noqa: F401
 from backend.models.market_event import MarketEvent, MarketNews  # noqa: F401
 from backend.models.position_snapshot import PositionSnapshot  # noqa: F401
 from backend.models.user_settings import UserSettings  # noqa: F401
+from backend.services import margin as margin_svc
 from backend.services import user_settings as settings_cache
 from backend.services.longbridge import get_cache_stats
 from backend.services.longbridge import warmup as warmup_longbridge
@@ -40,6 +42,13 @@ async def lifespan(app: FastAPI):
     logger.info("Database ready")
     await settings_cache.load()
     warmup_longbridge()
+
+    # Load persisted margin ratios into memory
+    from backend.models.database import async_session
+
+    async with async_session() as db:
+        await margin_svc.load_all(db)
+
     start_scheduler()
     yield
     stop_scheduler()

@@ -129,6 +129,8 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+  refreshMarginRatios: () =>
+    request<MarginRatio[]>('/api/settings/margin-ratios/refresh', { method: 'POST' }),
 };
 
 // Re-export types matching backend schemas
@@ -317,6 +319,9 @@ export interface PositionDiagnosis {
   action_hint: string;
   time_value: TimeValueAnalysis | null;
   attribution: PnLAttribution | null;
+  estimated_margin: number;
+  margin_return_ann: number;
+  risk_return_ann: number;
 }
 
 export interface ConcentrationData {
@@ -341,8 +346,44 @@ export interface PortfolioSummary {
   total_extrinsic_value: number;
 }
 
+export interface SymbolSummary {
+  symbol: string;
+  spot_price: number;
+  position_count: number;
+  total_delta: number;
+  total_gamma: number;
+  total_theta: number;
+  total_vega: number;
+  daily_theta_income: number;
+  total_unrealized_pnl: number;
+  total_extrinsic_value: number;
+  total_estimated_margin: number;
+  margin_return_ann: number;
+  risk_return_ann: number;
+}
+
+export interface AccountRisk {
+  net_assets: number;
+  init_margin: number;
+  maintenance_margin: number;
+  buy_power: number;
+  margin_call: number;
+  risk_level: number;
+  margin_utilization: number;
+  total_estimated_margin: number;
+  profitable_margin_freeable: number;
+  theta_yield_daily: number;
+  theta_yield_ann: number;
+  total_cash: number;
+  max_finance_amount: number;
+  remaining_finance_amount: number;
+  margin_safety_pct: number;
+}
+
 export interface PositionAnalysisResponse {
   portfolio: PortfolioSummary;
+  by_symbol: SymbolSummary[];
+  account_risk: AccountRisk | null;
   positions: PositionDiagnosis[];
   updated_at: string;
 }
@@ -537,11 +578,19 @@ export interface PriceAttributionResponse {
 
 // ── Settings types ─────────────────────────────────────
 
+export interface MarginRatio {
+  symbol: string;
+  im_factor: number;
+  mm_factor: number;
+  fm_factor: number;
+}
+
 export interface SettingsResponse {
   watched_symbols: string[];
   ai_provider: string;
   ai_api_key_set: boolean;
   ai_api_key_masked: string;
+  margin_ratios: MarginRatio[];
 }
 
 export interface SettingsUpdate {

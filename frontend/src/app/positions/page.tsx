@@ -115,7 +115,12 @@ export default function PositionsPage() {
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
           <div>
             <p className="font-medium text-green-400">
-              {t('syncComplete', { synced: syncResult.synced, skipped: syncResult.skipped })}
+              {t('syncComplete', {
+                synced: syncResult.synced,
+                updated: syncResult.updated ?? 0,
+                closed: syncResult.closed ?? 0,
+                skipped: syncResult.skipped,
+              })}
             </p>
             {syncResult.details.length > 0 && (
               <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
@@ -164,7 +169,11 @@ export default function PositionsPage() {
           </TabsList>
 
           <TabsContent value="open" className="space-y-4">
-            <PortfolioSummary data={analysis.portfolio} />
+            <PortfolioSummary
+              data={analysis.portfolio}
+              bySymbol={analysis.by_symbol}
+              accountRisk={analysis.account_risk}
+            />
 
             <div>
               <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase">

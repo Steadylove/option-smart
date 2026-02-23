@@ -152,6 +152,9 @@ class PositionDiagnosis(BaseModel):
     action_hint: str  # one-line suggestion
     time_value: TimeValueAnalysis | None = None
     attribution: PnLAttribution | None = None
+    estimated_margin: float = 0
+    margin_return_ann: float = 0  # theta*365/margin annualized (%)
+    risk_return_ann: float = 0  # theta*365/max_loss annualized (%)
 
 
 class ConcentrationData(BaseModel):
@@ -176,8 +179,45 @@ class PortfolioSummary(BaseModel):
     total_extrinsic_value: float = 0  # capturable time value across portfolio
 
 
+class SymbolSummary(BaseModel):
+    symbol: str
+    spot_price: float
+    position_count: int
+    total_delta: float
+    total_gamma: float
+    total_theta: float
+    total_vega: float
+    daily_theta_income: float
+    total_unrealized_pnl: float
+    total_extrinsic_value: float = 0
+    total_estimated_margin: float = 0
+    margin_return_ann: float = 0
+    risk_return_ann: float = 0
+
+
+class AccountRisk(BaseModel):
+    net_assets: float
+    init_margin: float
+    maintenance_margin: float
+    buy_power: float
+    margin_call: float = 0
+    risk_level: int = 0  # 0=safe, 1=medium, 2=early warning, 3=danger
+    margin_utilization: float = 0  # init_margin / net_assets
+    total_estimated_margin: float = 0
+    profitable_margin_freeable: float = 0
+    theta_yield_daily: float = 0
+    theta_yield_ann: float = 0
+    # financing
+    total_cash: float = 0
+    max_finance_amount: float = 0  # max borrowing capacity (from broker)
+    remaining_finance_amount: float = 0  # remaining borrowing capacity
+    margin_safety_pct: float = 0  # (net_assets - maintenance) / net_assets * 100
+
+
 class PositionAnalysisResponse(BaseModel):
     portfolio: PortfolioSummary
+    by_symbol: list[SymbolSummary] = []
+    account_risk: AccountRisk | None = None
     positions: list[PositionDiagnosis]
     updated_at: str
 

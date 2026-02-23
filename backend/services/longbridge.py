@@ -236,7 +236,7 @@ def get_account_balance() -> dict:
     Cached for 24h — refreshed daily by scheduler + manual refresh.
     """
     ctx = get_trade_ctx()
-    resp = ctx.account_balance()
+    resp = ctx.account_balance(currency="USD")
 
     result: dict = {
         "total_cash": "0",
@@ -244,6 +244,9 @@ def get_account_balance() -> dict:
         "buy_power": "0",
         "init_margin": "0",
         "maintenance_margin": "0",
+        "margin_call": "0",
+        "max_finance_amount": "0",
+        "remaining_finance_amount": "0",
         "risk_level": 0,
         "currency": "USD",
         "cash_infos": [],
@@ -254,6 +257,9 @@ def get_account_balance() -> dict:
         result["buy_power"] = str(acct.buy_power)
         result["init_margin"] = str(acct.init_margin)
         result["maintenance_margin"] = str(acct.maintenance_margin)
+        result["margin_call"] = str(getattr(acct, "margin_call", "0"))
+        result["max_finance_amount"] = str(getattr(acct, "max_finance_amount", "0"))
+        result["remaining_finance_amount"] = str(getattr(acct, "remaining_finance_amount", "0"))
         result["risk_level"] = acct.risk_level
         result["currency"] = str(acct.currency)
         result["cash_infos"] = [
@@ -266,6 +272,18 @@ def get_account_balance() -> dict:
             for ci in (acct.cash_infos or [])
         ]
     return result
+
+
+@_cached(ttl_seconds=86400)
+def get_margin_ratio(symbol: str) -> dict:
+    """Fetch margin ratio for a stock symbol. Cached 24h."""
+    ctx = get_trade_ctx()
+    resp = ctx.margin_ratio(symbol)
+    return {
+        "im_factor": float(resp.im_factor) if resp.im_factor else 0.5,
+        "mm_factor": float(resp.mm_factor) if resp.mm_factor else 0.35,
+        "fm_factor": float(resp.fm_factor) if resp.fm_factor else 0.3,
+    }
 
 
 @_cached(ttl_seconds=3600, market_aware=True)

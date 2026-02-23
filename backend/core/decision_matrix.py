@@ -55,14 +55,13 @@ def build_decision_matrix(
 
     # 2. Close now
     close_pnl = diag.pnl.unrealized_pnl
-    margin_est = p.strike * p.quantity * MULTIPLIER * 0.2  # rough 20% margin estimate
     actions.append(
         {
             "action": "Close Now",
             "description": f"Lock {'profit' if close_pnl >= 0 else 'loss'} at ${abs(close_pnl):.0f}",
             "expected_pnl": close_pnl,
             "pop": 100.0,
-            "margin_freed": round(margin_est, 0),
+            "margin_freed": round(diag.estimated_margin, 0),
             "risk": "No further risk",
             "score": _score_close(close_pnl, diag.pnl.cost_value, dte, diag.health.score),
         }

@@ -11,11 +11,18 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import type { PortfolioSummary as PortfolioSummaryType } from '@/lib/api';
+import { Progress } from '@/components/ui/progress';
+import type {
+  AccountRisk,
+  PortfolioSummary as PortfolioSummaryType,
+  SymbolSummary,
+} from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 interface PortfolioSummaryProps {
   data: PortfolioSummaryType;
+  bySymbol?: SymbolSummary[];
+  accountRisk?: AccountRisk | null;
 }
 
 const COLOR_PALETTE = [
@@ -36,12 +43,30 @@ function symbolColor(sym: string): string {
 }
 
 const DIRECTION_LABELS: Record<string, string> = {
-  sell: 'Short',
-  buy: 'Long',
   long: 'Long',
+  short: 'Short',
 };
 
-export function PortfolioSummary({ data }: PortfolioSummaryProps) {
+const RISK_LABELS: Record<number, { label: string; color: string }> = {
+  0: { label: 'Safe', color: 'text-green-400' },
+  1: { label: 'Medium', color: 'text-yellow-400' },
+  2: { label: 'Warning', color: 'text-orange-400' },
+  3: { label: 'Danger', color: 'text-red-400' },
+};
+
+function utilizationColor(pct: number) {
+  if (pct < 50) return 'text-green-400';
+  if (pct < 75) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
+function progressIndicatorClass(pct: number) {
+  if (pct < 50) return '[&>div]:bg-green-500';
+  if (pct < 75) return '[&>div]:bg-yellow-500';
+  return '[&>div]:bg-red-500';
+}
+
+export function PortfolioSummary({ data, bySymbol, accountRisk }: PortfolioSummaryProps) {
   const t = useTranslations('portfolio');
   const tc = useTranslations('common');
 
@@ -137,6 +162,290 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
           </CardContent>
         </Card>
       </div>
+
+      {accountRisk &&
+        (() => {
+          const cash = accountRisk.total_cash ?? 0;
+          const safety = accountRisk.margin_safety_pct ?? 0;
+
+          return (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                {t('accountRisk')}
+              </p>
+
+              {/* Row 1: core account metrics */}
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('netAssets')}</p>
+                    <p className="mt-1 text-xl font-bold text-blue-400">
+                      $
+                      {accountRisk.net_assets.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {t('totalCash')}: $
+                      {cash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('initMargin')}</p>
+                    <p className="mt-1 text-xl font-bold">
+                      $
+                      {accountRisk.init_margin.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {t('maintenance')}: $
+                      {accountRisk.maintenance_margin.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('buyPower')}</p>
+                    <p className="mt-1 text-xl font-bold text-green-400">
+                      $
+                      {accountRisk.buy_power.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('riskLevel')}</p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xl font-bold',
+                        (RISK_LABELS[accountRisk.risk_level] ?? RISK_LABELS[0]).color,
+                      )}
+                    >
+                      {(RISK_LABELS[accountRisk.risk_level] ?? RISK_LABELS[0]).label}
+                    </p>
+                    {accountRisk.profitable_margin_freeable > 0 && (
+                      <p className="mt-0.5 text-[11px] text-green-400">
+                        {t('freeableMargin')}: $
+                        {accountRisk.profitable_margin_freeable.toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Row 2: utilization, financing, safety */}
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t('marginUtilization')}
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xl font-bold',
+                        utilizationColor(accountRisk.margin_utilization),
+                      )}
+                    >
+                      {accountRisk.margin_utilization.toFixed(1)}%
+                    </p>
+                    <Progress
+                      value={Math.min(accountRisk.margin_utilization, 100)}
+                      className={cn(
+                        'mt-2 h-1.5',
+                        progressIndicatorClass(accountRisk.margin_utilization),
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('financeQuota')}</p>
+                    <p className="mt-1 text-xl font-bold">
+                      $
+                      {(accountRisk.max_finance_amount ?? 0).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {t('financeRemaining')}: $
+                      {(accountRisk.remaining_finance_amount ?? 0).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('marginSafety')}</p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xl font-bold',
+                        safety >= 50
+                          ? 'text-green-400'
+                          : safety >= 25
+                            ? 'text-yellow-400'
+                            : 'text-red-400',
+                      )}
+                    >
+                      {safety.toFixed(1)}%
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {t('marginSafetyDesc')}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card
+                  className={cn(
+                    'border-border',
+                    accountRisk.theta_yield_ann > 0 && 'ring-1 ring-primary/20',
+                  )}
+                >
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{t('thetaYield')}</p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xl font-bold',
+                        accountRisk.theta_yield_ann >= 20
+                          ? 'text-green-400'
+                          : accountRisk.theta_yield_ann >= 10
+                            ? 'text-yellow-400'
+                            : 'text-red-400',
+                      )}
+                    >
+                      {accountRisk.theta_yield_ann.toFixed(1)}%
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {t('thetaYieldDesc')}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          );
+        })()}
+
+      {bySymbol && bySymbol.length > 0 && (
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
+              {t('perSymbolBreakdown')}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="pb-2 text-left font-medium">{t('symbolCol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('spotCol')}</th>
+                    <th className="pb-2 text-right font-medium">Delta</th>
+                    <th className="pb-2 text-right font-medium">Theta</th>
+                    <th className="pb-2 text-right font-medium">Vega</th>
+                    <th className="pb-2 text-right font-medium">{t('pnlCol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('captCol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('marginCol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('marginAnnCol')}</th>
+                    <th className="pb-2 text-right font-medium">{t('riskAnnCol')}</th>
+                    <th className="pb-2 text-center font-medium">{t('posCol')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bySymbol.map((s) => (
+                    <tr key={s.symbol} className="border-b border-border/50 last:border-0">
+                      <td className="py-2 font-semibold">{s.symbol}</td>
+                      <td className="py-2 text-right font-mono text-muted-foreground">
+                        ${s.spot_price.toFixed(2)}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2 text-right font-mono',
+                          s.total_delta > 0 ? 'text-green-400' : 'text-red-400',
+                        )}
+                      >
+                        {s.total_delta > 0 ? '+' : ''}
+                        {s.total_delta.toFixed(1)}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2 text-right font-mono',
+                          s.daily_theta_income > 0 ? 'text-green-400' : 'text-red-400',
+                        )}
+                      >
+                        ${s.daily_theta_income.toFixed(2)}
+                      </td>
+                      <td className="py-2 text-right font-mono text-purple-400">
+                        {s.total_vega.toFixed(1)}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2 text-right font-mono',
+                          s.total_unrealized_pnl >= 0 ? 'text-green-400' : 'text-red-400',
+                        )}
+                      >
+                        {s.total_unrealized_pnl >= 0 ? '+' : ''}${s.total_unrealized_pnl.toFixed(2)}
+                      </td>
+                      <td className="py-2 text-right font-mono text-blue-400">
+                        ${s.total_extrinsic_value.toFixed(0)}
+                      </td>
+                      <td className="py-2 text-right font-mono text-muted-foreground">
+                        {s.total_estimated_margin > 0
+                          ? `$${s.total_estimated_margin.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                          : '—'}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2 text-right font-mono font-medium',
+                          s.margin_return_ann >= 20
+                            ? 'text-green-400'
+                            : s.margin_return_ann >= 10
+                              ? 'text-yellow-400'
+                              : s.margin_return_ann > 0
+                                ? 'text-red-400'
+                                : 'text-muted-foreground',
+                        )}
+                      >
+                        {s.margin_return_ann > 0 ? `${s.margin_return_ann.toFixed(1)}%` : '—'}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2 text-right font-mono font-medium',
+                          s.risk_return_ann >= 5
+                            ? 'text-green-400'
+                            : s.risk_return_ann >= 2
+                              ? 'text-yellow-400'
+                              : s.risk_return_ann > 0
+                                ? 'text-red-400'
+                                : 'text-muted-foreground',
+                        )}
+                      >
+                        {s.risk_return_ann > 0 ? `${s.risk_return_ann.toFixed(1)}%` : '—'}
+                      </td>
+                      <td className="py-2 text-center text-muted-foreground">{s.position_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 space-y-1 border-t border-border/50 pt-3 text-[10px] text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground/70">{t('marginAnnCol')}</span>{' '}
+                {t('marginAnnDesc')}
+              </p>
+              <p>
+                <span className="font-medium text-foreground/70">{t('riskAnnCol')}</span>{' '}
+                {t('riskAnnDesc')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {data.concentration && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

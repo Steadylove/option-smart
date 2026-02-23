@@ -14,12 +14,66 @@ from backend.models.schemas import (
     PositionHealth,
     PositionOut,
     PositionPnL,
+    SymbolSummary,
     TimeValueAnalysis,
 )
 
 logger = logging.getLogger(__name__)
 
 MULTIPLIER = 100  # standard US equity option
+
+
+def estimate_position_margin(
+    direction: str,
+    option_type: str | None,
+    position_type: str,
+    spot: float,
+    strike: float | None,
+    option_price: float,
+    quantity: int,
+    is_covered: bool = False,
+    im_factor: float = 0.5,
+) -> float:
+    """Estimate margin. Returns total margin in USD.
+
+    im_factor from Longbridge margin_ratio API — used for stock positions.
+    Options use standard Reg-T 20% formula (independent of stock margin ratio).
+    """
+    if position_type != "option" or not option_type or not strike:
+        return round(spot * quantity * im_factor, 2)
+
+    if direction in ("buy", "long"):
+        return 0
+
+    if is_covered:
+        return 0
+
+    # Naked short option: standard Reg-T formula (20% of spot)
+    if option_type == "put":
+        otm = max(strike - spot, 0)
+        margin_a = 0.20 * spot - otm + option_price
+        margin_b = 0.10 * strike + option_price
+    else:  # call
+        otm = max(spot - strike, 0)
+        margin_a = 0.20 * spot - otm + option_price
+        margin_b = 0.15 * spot + option_price
+
+    per_share = max(margin_a, margin_b)
+    return round(max(per_share, 0) * MULTIPLIER * quantity, 2)
+
+
+def _market_exposure(direction: str, option_type: str | None, position_type: str) -> str:
+    """Derive market exposure direction from trade action + option type.
+
+    Sell Put / Buy Call / Buy Stock → long (bullish)
+    Sell Call / Buy Put / Sell Stock → short (bearish)
+    """
+    if position_type != "option" or not option_type:
+        return "long" if direction in ("buy", "long") else "short"
+
+    if direction == "sell":
+        return "long" if option_type == "put" else "short"
+    return "long" if option_type == "call" else "short"
 
 
 def _moneyness(spot: float, strike: float, option_type: str) -> str:
@@ -339,7 +393,8 @@ def build_portfolio_summary(
         health_counts[d.health.level.value] = health_counts.get(d.health.level.value, 0) + 1
 
         cost_by_symbol[sym] = cost_by_symbol.get(sym, 0) + d.pnl.cost_value
-        by_direction[p.direction] = by_direction.get(p.direction, 0) + 1
+        exposure = _market_exposure(p.direction, p.option_type, p.position_type)
+        by_direction[exposure] = by_direction.get(exposure, 0) + 1
 
         if p.expiry:
             iso_week = p.expiry.isocalendar()
@@ -372,3 +427,49 @@ def build_portfolio_summary(
         ),
         total_extrinsic_value=round(total_extrinsic, 2),
     )
+
+
+def build_symbol_summaries(
+    diagnoses: list[PositionDiagnosis],
+) -> list[SymbolSummary]:
+    """Per-symbol aggregation: stock + options combined for each underlying."""
+    groups: dict[str, list[PositionDiagnosis]] = {}
+    for d in diagnoses:
+        sym = d.position.symbol.replace(".US", "")
+        groups.setdefault(sym, []).append(d)
+
+    summaries = []
+    for sym, positions in sorted(groups.items()):
+        theta = round(sum(d.greeks.theta for d in positions), 2)
+        extrinsic = sum(d.time_value.total_extrinsic for d in positions if d.time_value)
+        sym_margin = round(sum(d.estimated_margin for d in positions), 2)
+        sym_margin_ann = (
+            round(theta * 365 / sym_margin * 100, 1) if sym_margin > 0 and theta > 0 else 0
+        )
+        # Risk-adjusted: theta / total max loss across all positions in this symbol
+        total_max_loss = sum(
+            (d.position.strike or 0) * MULTIPLIER * d.position.quantity
+            for d in positions
+            if d.position.position_type == "option" and d.position.strike
+        )
+        sym_risk_ann = (
+            round(theta * 365 / total_max_loss * 100, 1) if total_max_loss > 0 and theta > 0 else 0
+        )
+        summaries.append(
+            SymbolSummary(
+                symbol=sym,
+                spot_price=positions[0].current_spot,
+                position_count=len(positions),
+                total_delta=round(sum(d.greeks.delta for d in positions), 2),
+                total_gamma=round(sum(d.greeks.gamma for d in positions), 4),
+                total_theta=theta,
+                total_vega=round(sum(d.greeks.vega for d in positions), 2),
+                daily_theta_income=theta,
+                total_unrealized_pnl=round(sum(d.pnl.unrealized_pnl for d in positions), 2),
+                total_extrinsic_value=round(extrinsic, 2),
+                total_estimated_margin=sym_margin,
+                margin_return_ann=sym_margin_ann,
+                risk_return_ann=sym_risk_ann,
+            )
+        )
+    return summaries
