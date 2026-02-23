@@ -1,9 +1,9 @@
 """Position health diagnosis and portfolio analysis engine."""
 
 import logging
-from datetime import date
 
-from backend.core.greeks import calc_greeks, calc_pop
+from backend.config import settings
+from backend.core.greeks import calc_greeks, calc_pop, market_dte
 from backend.models.schemas import (
     HealthLevel,
     PortfolioSummary,
@@ -209,14 +209,18 @@ def diagnose_position(
     iv: float,
 ) -> PositionDiagnosis:
     """Full health diagnosis for a single position."""
-    dte = (pos.expiry - date.today()).days
+    dte = market_dte(pos.expiry)
     is_call = pos.option_type == "call"
+    underlying = pos.symbol if ".US" in pos.symbol else f"{pos.symbol}.US"
+    div_yield = settings.dividend_yields.get(underlying, 0.0)
 
     greeks = calc_greeks(
         spot=spot_price,
         strike=pos.strike,
-        dte=max(dte, 0),
+        dte=dte,
         iv=iv,
+        rate=settings.risk_free_rate,
+        q=div_yield,
         is_call=is_call,
     )
 
@@ -261,7 +265,7 @@ def diagnose_position(
             market_value=round(market_value, 2),
             cost_value=round(cost_value, 2),
         ),
-        dte=max(dte, 0),
+        dte=dte,
         current_spot=spot_price,
         moneyness=money,
         assignment_prob=round(delta_abs * 100, 1),

@@ -10,6 +10,7 @@ from backend.core.greeks import (
     calc_annualized_return,
     calc_greeks,
     calc_pop,
+    market_dte,
 )
 from backend.models.schemas import (
     DashboardResponse,
@@ -131,7 +132,8 @@ async def option_chain_with_greeks(
         raise HTTPException(status_code=502, detail="Failed to fetch option quotes")
 
     quote_map = {q["symbol"]: q for q in raw_quotes}
-    dte = (expiry_date - date.today()).days
+    dte = market_dte(expiry_date)
+    div_yield = settings.dividend_yields.get(full_symbol, 0.0)
 
     calls: list[OptionWithGreeks] = []
     puts: list[OptionWithGreeks] = []
@@ -163,13 +165,14 @@ async def option_chain_with_greeks(
                 strike=strike,
                 dte=dte,
                 iv=iv,
+                rate=settings.risk_free_rate,
+                q=div_yield,
                 is_call=(direction == "C"),
             )
 
             pop = calc_pop(greeks.delta)
             premium = float(q["last_done"]) if q["last_done"] else 0
             multiplier = float(q["contract_multiplier"]) if q["contract_multiplier"] else 100
-            # Rough margin estimate: naked option ≈ 20% of underlying + premium
             margin = spot_price * multiplier * 0.2
             ann_ret = calc_annualized_return(premium * multiplier, margin, dte)
 

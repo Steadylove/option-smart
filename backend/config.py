@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # Watched symbols
     watched_symbols: list[str] = ["TQQQ.US", "TSLL.US", "NVDL.US"]
 
+    # Greeks calculation
+    risk_free_rate: float = 0.043
+    dividend_yields: dict[str, float] = {
+        "TQQQ.US": 0.008,
+        "TSLL.US": 0.0,
+        "NVDL.US": 0.0,
+    }
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
