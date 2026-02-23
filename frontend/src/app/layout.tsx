@@ -36,9 +36,7 @@ export default async function RootLayout({
           <TooltipProvider>
             <div className="flex h-screen overflow-hidden">
               <Sidebar />
-              <main className="flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-7xl p-6 lg:p-8">{children}</div>
-              </main>
+              <main className="flex-1 overflow-y-auto">{children}</main>
             </div>
           </TooltipProvider>
         </NextIntlClientProvider>

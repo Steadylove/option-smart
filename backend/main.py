@@ -14,10 +14,12 @@ from backend.api.position import router as position_router
 from backend.api.quote import router as quote_router
 from backend.api.stress_test import router as stress_test_router
 from backend.config import settings
+from backend.models.chat import ChatConversation  # noqa: F401 — register tables
 from backend.models.database import init_db
-from backend.models.market_event import MarketEvent, MarketNews  # noqa: F401 — register tables
+from backend.models.market_event import MarketEvent, MarketNews  # noqa: F401
 from backend.models.position_snapshot import PositionSnapshot  # noqa: F401
 from backend.services.longbridge import get_cache_stats
+from backend.services.longbridge import warmup as warmup_longbridge
 from backend.tasks.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -33,6 +35,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database ready")
+    warmup_longbridge()
     start_scheduler()
     yield
     stop_scheduler()

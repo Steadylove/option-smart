@@ -266,6 +266,34 @@ TOOLS = [
 ]
 
 
+def build_portfolio_context(diagnoses: list[PositionDiagnosis]) -> str:
+    """Build a compact portfolio summary to inject into system prompt,
+    so the AI doesn't need to waste a tool round fetching overview + position list.
+    """
+    if not diagnoses:
+        return "当前无持仓。"
+
+    summary = build_portfolio_summary(diagnoses)
+    lines = [
+        f"组合Delta={summary.total_delta:.1f} Theta={summary.total_theta:.2f} "
+        f"Vega={summary.total_vega:.2f} 未实现盈亏=${summary.total_unrealized_pnl:.2f}",
+        "",
+        "持仓列表:",
+    ]
+    for d in diagnoses:
+        p = d.position
+        sym = p.symbol.replace(".US", "")
+        label = f"{sym} ${p.strike} {(p.option_type or '').upper()}" if p.strike else sym
+        lines.append(
+            f"  [{p.id}] {label} {p.direction} {p.quantity}{'张' if p.position_type == 'option' else '股'} "
+            f"DTE={d.dte} 健康={d.health.level.value}({d.health.score}) "
+            f"盈亏={d.pnl.unrealized_pnl:+.2f}({d.pnl.unrealized_pnl_pct:+.1f}%) "
+            f"Δ={d.greeks.delta:.2f} θ={d.greeks.theta:.2f} "
+            f"{'建议: ' + d.action_hint if d.action_hint else ''}"
+        )
+    return "\n".join(lines)
+
+
 # ── Tool executor ─────────────────────────────────────────
 
 
@@ -403,6 +431,7 @@ async def _tool_stock_quote(symbol: str) -> dict:
 
 
 async def _tool_stress_test(diagnoses: list[PositionDiagnosis], args: dict) -> dict:
+    from backend.config import settings
     from backend.core.stress_test import SCENARIO_PRESETS, run_stress_scenarios
     from backend.models.schemas import StressScenario
 
@@ -419,7 +448,9 @@ async def _tool_stress_test(diagnoses: list[PositionDiagnosis], args: dict) -> d
             )
         ]
 
-    results = run_stress_scenarios(diagnoses, scenarios)
+    results = run_stress_scenarios(
+        diagnoses, scenarios, settings.risk_free_rate, settings.dividend_yields
+    )
 
     summary = []
     for r in results:
@@ -475,7 +506,7 @@ async def _tool_search_news(symbol: str, days_back: int = 7) -> dict:
                 MarketNews.published_at >= cutoff,
             )
             .order_by(MarketNews.published_at.desc())
-            .limit(20)
+            .limit(10)
         )
         result = await session.execute(stmt)
         rows = result.scalars().all()
@@ -484,7 +515,7 @@ async def _tool_search_news(symbol: str, days_back: int = 7) -> dict:
         {
             "symbol": r.symbol,
             "headline": r.headline,
-            "summary": (r.summary or "")[:200],
+            "summary": (r.summary or "")[:100],
             "source": r.source or "",
             "published_at": r.published_at,
         }

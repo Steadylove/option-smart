@@ -68,7 +68,7 @@ export default function ReviewPage() {
   }, [symbol, date]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="mx-auto flex h-screen max-w-7xl flex-col overflow-hidden p-6 lg:p-8">
       <div className="border-b border-border px-6 py-4">
         <h1 className="flex items-center gap-2 text-lg font-semibold">
           <FileBarChart className="h-5 w-5" />

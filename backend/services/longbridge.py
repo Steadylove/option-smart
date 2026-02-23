@@ -155,6 +155,18 @@ def get_quote_ctx() -> QuoteContext:
     return _quote_ctx
 
 
+def warmup() -> None:
+    """Pre-initialize QuoteContext + TradeContext at startup to avoid cold-start."""
+    try:
+        get_quote_ctx()
+    except Exception as e:
+        logger.warning("Warmup QuoteContext failed: %s", e)
+    try:
+        get_trade_ctx()
+    except Exception as e:
+        logger.warning("Warmup TradeContext failed: %s", e)
+
+
 # ── Trade context ─────────────────────────────────────────
 
 

@@ -1,10 +1,13 @@
 """Shared portfolio data loading — used by both analysis and stress test APIs."""
 
+import asyncio
 import logging
+import time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.market_hours import is_us_market_open
 from backend.core.position_analyzer import diagnose_position, diagnose_stock_position
 from backend.models.position import Position
 from backend.models.schemas import PositionDiagnosis, PositionOut
@@ -12,8 +15,40 @@ from backend.services.longbridge import get_option_quotes, get_stock_quotes
 
 logger = logging.getLogger(__name__)
 
+_CACHE_TTL = 30  # 30s during market hours
+_CACHE_TTL_CLOSED = 600  # 10min when market is closed
+_diagnoses_cache: list[PositionDiagnosis] | None = None
+_diagnoses_ts: float = 0
+_diagnoses_lock = asyncio.Lock()
+
 
 async def load_diagnoses(db: AsyncSession) -> list[PositionDiagnosis]:
+    """Load open positions with TTL cache to avoid repeated API calls."""
+    global _diagnoses_cache, _diagnoses_ts
+
+    ttl = _CACHE_TTL if is_us_market_open() else _CACHE_TTL_CLOSED
+    if _diagnoses_cache is not None and (time.monotonic() - _diagnoses_ts) < ttl:
+        return _diagnoses_cache
+
+    async with _diagnoses_lock:
+        # double-check after acquiring lock
+        if _diagnoses_cache is not None and (time.monotonic() - _diagnoses_ts) < ttl:
+            return _diagnoses_cache
+
+        result = await _fetch_diagnoses(db)
+        _diagnoses_cache = result
+        _diagnoses_ts = time.monotonic()
+        return result
+
+
+def invalidate_diagnoses_cache() -> None:
+    """Call after position changes (open/close/update) to clear stale data."""
+    global _diagnoses_cache, _diagnoses_ts
+    _diagnoses_cache = None
+    _diagnoses_ts = 0
+
+
+async def _fetch_diagnoses(db: AsyncSession) -> list[PositionDiagnosis]:
     """Load open positions, fetch market data, build diagnoses."""
     stmt = (
         select(Position)

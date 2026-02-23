@@ -166,7 +166,7 @@ export default function EventsPage() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="mx-auto flex h-screen max-w-7xl flex-col overflow-hidden p-6 lg:p-8">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold">{t('title')}</h1>

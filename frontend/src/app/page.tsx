@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const t = useTranslations('dashboard');
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8 p-6 lg:p-8">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

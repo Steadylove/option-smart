@@ -31,7 +31,7 @@ from backend.services.longbridge import (
 from backend.services.longbridge import (
     get_account_positions,
 )
-from backend.services.portfolio import load_diagnoses
+from backend.services.portfolio import invalidate_diagnoses_cache, load_diagnoses
 
 # ── Analysis result cache ────────────────────────────────
 _analysis_cache: dict[str, tuple[float, object]] = {}
@@ -115,6 +115,7 @@ async def create_position(
     await db.refresh(pos)
     with _analysis_cache_lock:
         _analysis_cache.clear()
+    invalidate_diagnoses_cache()
     return pos
 
 
@@ -139,6 +140,7 @@ async def update_position(
     await db.refresh(pos)
     with _analysis_cache_lock:
         _analysis_cache.clear()
+    invalidate_diagnoses_cache()
     return pos
 
 
@@ -154,6 +156,7 @@ async def delete_position(
     await db.commit()
     with _analysis_cache_lock:
         _analysis_cache.clear()
+    invalidate_diagnoses_cache()
 
 
 @router.post("/{position_id}/close", response_model=PositionOut)
@@ -185,6 +188,7 @@ async def close_position(
     await db.refresh(pos)
     with _analysis_cache_lock:
         _analysis_cache.clear()
+    invalidate_diagnoses_cache()
     return pos
 
 
@@ -340,9 +344,9 @@ async def sync_positions_from_broker(
 
     if synced > 0:
         await db.commit()
-        # Invalidate caches after new positions are added
         with _analysis_cache_lock:
             _analysis_cache.clear()
+        invalidate_diagnoses_cache()
         clear_lb_cache()
 
     logger.info("Position sync complete: %d synced, %d skipped", synced, skipped)

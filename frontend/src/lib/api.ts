@@ -52,13 +52,27 @@ export const api = {
   getDecisions: (positionId: number) =>
     request<DecisionMatrixResponse>(`/api/positions/${positionId}/decisions`),
 
-  // Chat
-  chat: (messages: ChatMessage[], stream = true) =>
-    fetch(`${API_BASE}/api/chat`, {
+  // Conversations
+  listConversations: () => request<ConversationsResponse>('/api/conversations'),
+  createConversation: () => request<ConversationOut>('/api/conversations', { method: 'POST' }),
+  getConversation: (id: string) => request<ConversationOut>(`/api/conversations/${id}`),
+  updateConversation: (id: string, data: { title?: string; pinned?: boolean }) =>
+    request<ConversationOut>(`/api/conversations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteConversation: (id: string) =>
+    request<void>(`/api/conversations/${id}`, { method: 'DELETE' }),
+  sendChatMessage: (convId: string, message: string, deepThinking = false) =>
+    request<{ task_id: string }>(`/api/conversations/${convId}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, stream }),
+      body: JSON.stringify({ message, deep_thinking: deepThinking }),
     }),
+  getChatTask: (taskId: string) => request<ChatTaskResult>(`/api/chat/task/${taskId}`),
+  streamChatTask: (taskId: string, signal?: AbortSignal) =>
+    fetch(`${API_BASE}/api/chat/task/${taskId}/stream`, { signal }),
 
   // Alerts
   getAlerts: () => request<AlertsResponse>('/api/alerts'),
@@ -391,6 +405,36 @@ export interface DecisionMatrixResponse {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+export interface MessageOut {
+  role: string;
+  content: string;
+  thinking?: string | null;
+  tools?: string[] | null;
+}
+
+export interface ConversationOut {
+  id: string;
+  title: string;
+  pinned: boolean;
+  messages: MessageOut[];
+  pending_task_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationsResponse {
+  conversations: ConversationOut[];
+}
+
+export interface ChatTaskResult {
+  task_id: string;
+  status: string;
+  content: string;
+  thinking: string;
+  tools: string[];
+  error: string | null;
 }
 
 // ── Alert types ────────────────────────────────────────
