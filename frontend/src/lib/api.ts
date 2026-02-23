@@ -51,6 +51,11 @@ export const api = {
   // Decision matrix
   getDecisions: (positionId: number) =>
     request<DecisionMatrixResponse>(`/api/positions/${positionId}/decisions`),
+
+  // Alerts
+  getAlerts: () => request<AlertsResponse>('/api/alerts'),
+  getSnapshots: (positionId: number, limit = 30) =>
+    request<SnapshotOut[]>(`/api/alerts/snapshots/${positionId}?limit=${limit}`),
 };
 
 // Re-export types matching backend schemas
@@ -306,4 +311,44 @@ export interface DecisionMatrixResponse {
   current_pnl: number;
   health_score: number;
   actions: ActionAlternative[];
+}
+
+// ── Alert types ────────────────────────────────────────
+
+export interface AlertOut {
+  type: string;
+  level: 'info' | 'warning' | 'critical';
+  position_id: number;
+  symbol: string;
+  label: string;
+  title: string;
+  message: string;
+  suggested_action: string;
+  created_at: string;
+}
+
+export interface AlertsResponse {
+  alerts: AlertOut[];
+  total: number;
+  updated_at: string;
+}
+
+// ── Snapshot types ─────────────────────────────────────
+
+export interface SnapshotOut {
+  id: number;
+  position_id: number;
+  snapshot_date: string;
+  spot_price: number;
+  option_price: number;
+  iv: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  unrealized_pnl: number;
+  unrealized_pnl_pct: number;
+  health_score: number;
+  health_level: string;
+  events: string | null;
 }

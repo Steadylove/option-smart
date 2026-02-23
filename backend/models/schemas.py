@@ -326,3 +326,47 @@ class DecisionMatrixResponse(BaseModel):
     current_pnl: float
     health_score: int
     actions: list[ActionAlternative]
+
+
+# ── Alert schemas ───────────────────────────────────────
+
+
+class AlertOut(BaseModel):
+    type: str
+    level: str  # "info" | "warning" | "critical"
+    position_id: int
+    symbol: str
+    label: str
+    title: str
+    message: str
+    suggested_action: str
+    created_at: str
+
+
+class AlertsResponse(BaseModel):
+    alerts: list[AlertOut]
+    total: int
+    updated_at: str
+
+
+# ── Snapshot schemas ────────────────────────────────────
+
+
+class SnapshotOut(BaseModel):
+    id: int
+    position_id: int
+    snapshot_date: date
+    spot_price: float
+    option_price: float
+    iv: float
+    delta: float
+    gamma: float
+    theta: float
+    vega: float
+    unrealized_pnl: float
+    unrealized_pnl_pct: float
+    health_score: int
+    health_level: str
+    events: str | None
+
+    model_config = {"from_attributes": True}

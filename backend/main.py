@@ -6,12 +6,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.alert import router as alert_router
 from backend.api.position import router as position_router
 from backend.api.quote import router as quote_router
 from backend.api.stress_test import router as stress_test_router
 from backend.config import settings
 from backend.models.database import init_db
+from backend.models.position_snapshot import PositionSnapshot  # noqa: F401 — register table
 from backend.services.longbridge import get_cache_stats
+from backend.tasks.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,7 +29,9 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database ready")
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(
@@ -47,6 +52,7 @@ app.add_middleware(
 app.include_router(quote_router)
 app.include_router(position_router)
 app.include_router(stress_test_router)
+app.include_router(alert_router)
 
 
 @app.get("/api/health")

@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import { api } from '@/lib/api';
 import type {
+  AlertsResponse,
   DashboardResponse,
   OptionChainWithGreeks,
   PositionAnalysisResponse,
@@ -50,6 +51,16 @@ export function usePositionAnalysis() {
   return useSWR<PositionAnalysisResponse>('position-analysis', () => api.analyzePositions(), {
     refreshInterval: POSITION_REFRESH,
     dedupingInterval: 15_000,
+    revalidateOnFocus: false,
+  });
+}
+
+const ALERT_REFRESH = 60_000; // 1 min — alerts don't need sub-minute refresh
+
+export function useAlerts() {
+  return useSWR<AlertsResponse>('alerts', () => api.getAlerts(), {
+    refreshInterval: ALERT_REFRESH,
+    dedupingInterval: 30_000,
     revalidateOnFocus: false,
   });
 }

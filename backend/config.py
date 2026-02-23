@@ -32,6 +32,13 @@ class Settings(BaseSettings):
         "NVDL.US": 0.0,
     }
 
+    # Alert thresholds
+    alert_scan_interval_minutes: int = 5
+    take_profit_tiers: list[float] = [50.0, 75.0]
+    stop_loss_multiplier: float = 2.0
+    delta_danger_threshold: float = 0.5
+    dte_warn_days: int = 7
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
