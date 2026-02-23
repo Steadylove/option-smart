@@ -18,8 +18,22 @@ from backend.core.market_hours import is_us_market_open
 
 logger = logging.getLogger(__name__)
 
+_config: Config | None = None
 _quote_ctx: QuoteContext | None = None
 _trade_ctx: TradeContext | None = None
+
+
+def _get_config() -> Config:
+    """Shared Config singleton — created once, reused by both contexts."""
+    global _config
+    if _config is None:
+        _config = Config(
+            app_key=settings.longport_app_key,
+            app_secret=settings.longport_app_secret,
+            access_token=settings.longport_access_token,
+        )
+    return _config
+
 
 # ── TTL cache ──────────────────────────────────────────────
 
@@ -78,6 +92,16 @@ def clear_cache():
     with _cache_lock:
         _cache.clear()
     logger.info("Cache cleared")
+
+
+def clear_cache_for(*fn_names: str):
+    """Clear cache entries for specific functions."""
+    with _cache_lock:
+        keys = [k for k in _cache if any(k.startswith(f"{fn}:") for fn in fn_names)]
+        for k in keys:
+            del _cache[k]
+    if keys:
+        logger.info("Cleared %d cache entries for %s", len(keys), ", ".join(fn_names))
 
 
 def clear_account_cache():
@@ -142,15 +166,10 @@ def _throttled_option_quote(symbols: list[str]) -> list:
 
 
 def get_quote_ctx() -> QuoteContext:
-    """Lazy-init singleton QuoteContext."""
+    """Lazy-init singleton QuoteContext — one long-lived connection."""
     global _quote_ctx
     if _quote_ctx is None:
-        config = Config(
-            app_key=settings.longport_app_key,
-            app_secret=settings.longport_app_secret,
-            access_token=settings.longport_access_token,
-        )
-        _quote_ctx = QuoteContext(config)
+        _quote_ctx = QuoteContext(_get_config())
         logger.info("Longbridge QuoteContext initialized")
     return _quote_ctx
 
@@ -171,15 +190,10 @@ def warmup() -> None:
 
 
 def get_trade_ctx() -> TradeContext:
-    """Lazy-init singleton TradeContext for account/trade operations."""
+    """Lazy-init singleton TradeContext — one long-lived connection."""
     global _trade_ctx
     if _trade_ctx is None:
-        config = Config(
-            app_key=settings.longport_app_key,
-            app_secret=settings.longport_app_secret,
-            access_token=settings.longport_access_token,
-        )
-        _trade_ctx = TradeContext(config)
+        _trade_ctx = TradeContext(_get_config())
         logger.info("Longbridge TradeContext initialized")
     return _trade_ctx
 
@@ -344,11 +358,12 @@ def _resolve_direction(direction) -> str:
     return str(direction)
 
 
-@_cached(ttl_seconds=60, market_aware=True)
+@_cached(ttl_seconds=300, market_aware=True)
 def get_option_quotes(symbols: tuple[str, ...]) -> list[dict]:
     """Fetch real-time option quotes with IV and OI.
 
     Accepts a sorted tuple for cache-key hashability.
+    TTL 5min during market hours, 24h off-hours.
     """
     raw = _throttled_option_quote(list(symbols))
     results = []

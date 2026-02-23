@@ -32,7 +32,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useEventTimeline, useMarketNews } from '@/hooks/use-swr-api';
+import { useEventTimeline, useMarketNews, useSettings } from '@/hooks/use-swr-api';
 import { api } from '@/lib/api';
 import type { MarketEvent, MarketNewsItem } from '@/lib/api';
 
@@ -100,11 +100,10 @@ export default function EventsPage() {
 
   const eventsByDate = groupByDate(events);
 
+  const { watchedSymbols, symbols: shortSymbols } = useSettings();
   const symbolOptions = [
     { value: 'all', label: t('allSymbols') },
-    { value: 'TQQQ.US', label: 'TQQQ' },
-    { value: 'TSLL.US', label: 'TSLL' },
-    { value: 'NVDL.US', label: 'NVDL' },
+    ...watchedSymbols.map((s, i) => ({ value: s, label: shortSymbols[i] })),
   ];
 
   const runAnalysis = useCallback(async () => {

@@ -1,21 +1,31 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { useOptionExpiries, useOptionChain } from '@/hooks/use-swr-api';
+import { api } from '@/lib/api';
+import { useOptionExpiries, useOptionChain, useSettings } from '@/hooks/use-swr-api';
 import { OptionChainTable } from '@/components/option-chain-table';
 import { OptionAnalysisDialog } from '@/components/option-analysis-dialog';
 import { ChainSkeleton } from '@/components/dashboard-skeleton';
 import { ErrorBanner } from '@/components/error-banner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Target, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Circle } from 'lucide-react';
+import {
+  Target,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+  Circle,
+  ChevronsUpDown,
+  ChevronsDownUp,
+  RefreshCw,
+} from 'lucide-react';
 import type { OptionWithGreeks } from '@/lib/api';
-
-const SYMBOLS = ['TQQQ', 'TSLL', 'NVDL'];
 
 type ViewMode = 'all' | 'calls' | 'puts';
 
@@ -24,23 +34,33 @@ function daysUntil(dateStr: string) {
 }
 
 export default function ChainPage() {
-  const [symbol, setSymbol] = useState(SYMBOLS[0]);
+  const { symbols: SYMBOLS } = useSettings();
+  const [symbol, setSymbol] = useState('');
   const [expiry, setExpiry] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [expanded, setExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedOption, setSelectedOption] = useState<OptionWithGreeks | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeSymbol = symbol || SYMBOLS[0] || '';
+
+  const strikes = expanded ? 'all' : 'near';
 
   const t = useTranslations('chain');
   const tc = useTranslations('common');
 
-  const { data: expiries, error: expiriesError, mutate: retryExpiries } = useOptionExpiries(symbol);
+  const {
+    data: expiries,
+    error: expiriesError,
+    mutate: retryExpiries,
+  } = useOptionExpiries(activeSymbol);
   const {
     data: chain,
     error: chainError,
     isLoading,
     isValidating,
-    mutate: retryChain,
-  } = useOptionChain(symbol, expiry);
+    mutate: mutateChain,
+  } = useOptionChain(activeSymbol, expiry, strikes);
 
   const today = new Date().toISOString().slice(0, 10);
   const futureDates = expiries?.expiry_dates.filter((d) => d > today) ?? [];
@@ -49,6 +69,11 @@ export default function ChainPage() {
     setExpiry(futureDates[0]);
   }
 
+  // Reset expanded when switching symbol or expiry
+  useEffect(() => {
+    setExpanded(false);
+  }, [activeSymbol, expiry]);
+
   useEffect(() => {
     if (scrollRef.current && expiry) {
       const active = scrollRef.current.querySelector('[data-active="true"]');
@@ -56,7 +81,21 @@ export default function ChainPage() {
     }
   }, [expiry]);
 
+  const handleRefresh = useCallback(async () => {
+    if (!activeSymbol || !expiry || refreshing) return;
+    setRefreshing(true);
+    try {
+      const fresh = await api.optionChain(activeSymbol, expiry, strikes, true);
+      mutateChain(fresh, { revalidate: false });
+    } catch {
+      mutateChain();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeSymbol, expiry, strikes, refreshing, mutateChain]);
+
   const dte = chain?.calls[0]?.dte ?? chain?.puts[0]?.dte ?? null;
+  const showingStrikes = Math.max(chain?.calls.length ?? 0, chain?.puts.length ?? 0);
 
   const viewModes = [
     { key: 'all' as const, label: tc('all'), icon: ArrowUpDown },
@@ -72,7 +111,7 @@ export default function ChainPage() {
       </div>
 
       <Tabs
-        value={symbol}
+        value={activeSymbol}
         onValueChange={(v) => {
           setSymbol(v);
           setExpiry('');
@@ -89,7 +128,7 @@ export default function ChainPage() {
 
       {expiriesError && (
         <ErrorBanner
-          message={t('expiryError', { symbol })}
+          message={t('expiryError', { symbol: activeSymbol })}
           detail={t('expiryErrorDetail')}
           onRetry={() => retryExpiries()}
         />
@@ -132,16 +171,16 @@ export default function ChainPage() {
         <ErrorBanner
           message={t('chainError')}
           detail={t('chainErrorDetail')}
-          onRetry={() => retryChain()}
+          onRetry={() => mutateChain()}
         />
       )}
 
       {chain && (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="gap-1.5 font-mono tabular-nums">
               <Target className="h-3 w-3" />
-              {symbol}.US
+              {activeSymbol}.US
             </Badge>
             <Badge variant="secondary" className="font-mono tabular-nums">
               Spot ${parseFloat(chain.spot_price).toFixed(2)}
@@ -165,24 +204,71 @@ export default function ChainPage() {
               />
               {chain.market_open ? t('live') : t('delayed')}
             </Badge>
+
+            {chain.total_strikes > 0 && (
+              <Badge
+                variant="outline"
+                className="gap-1 font-mono text-[10px] text-muted-foreground"
+              >
+                {t('showingStrikes', { showing: showingStrikes, total: chain.total_strikes })}
+              </Badge>
+            )}
           </div>
 
-          <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
-            {viewModes.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setViewMode(key)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                  viewMode === key
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
+          <div className="flex items-center gap-2">
+            {chain.is_truncated && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 text-xs"
+                disabled={isValidating}
+                onClick={() => setExpanded(true)}
               >
-                <Icon className="h-3 w-3" />
-                {label}
-              </button>
-            ))}
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+                {t('expandAll', { total: chain.total_strikes })}
+              </Button>
+            )}
+
+            {expanded && !chain.is_truncated && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 text-xs"
+                onClick={() => setExpanded(false)}
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5" />
+                {t('collapseToNear')}
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+              disabled={refreshing}
+              onClick={handleRefresh}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+              {refreshing ? t('refreshing') : t('refresh')}
+            </Button>
+
+            <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
+              {viewModes.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setViewMode(key)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                    viewMode === key
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -212,7 +298,7 @@ export default function ChainPage() {
       <OptionAnalysisDialog
         option={selectedOption}
         spotPrice={chain ? parseFloat(chain.spot_price) : 0}
-        symbol={`${symbol}.US`}
+        symbol={`${activeSymbol}.US`}
         onClose={() => setSelectedOption(null)}
       />
     </div>

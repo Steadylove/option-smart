@@ -368,7 +368,10 @@ async def get_upcoming_events(
     days_ahead: int = 14,
 ) -> list[dict]:
     """Aggregate upcoming earnings + built-in economic events."""
-    symbols = symbols or settings.watched_symbols
+    if not symbols:
+        from backend.services.user_settings import get_watched_symbols
+
+        symbols = get_watched_symbols()
     today = date.today()
     end = today + timedelta(days=days_ahead)
     events: list[dict] = []
@@ -620,7 +623,10 @@ async def build_event_timeline(
 
     News comes from local DB (synced daily) — no live Finnhub calls.
     """
-    symbols = symbols or settings.watched_symbols
+    if not symbols:
+        from backend.services.user_settings import get_watched_symbols
+
+        symbols = get_watched_symbols()
     today = date.today()
 
     upcoming = await get_upcoming_events(symbols, days_ahead)

@@ -34,20 +34,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { api } from '@/lib/api';
 import type { MarketNewsItem, PriceAttributionResponse } from '@/lib/api';
-
-const SYMBOLS = [
-  { value: 'TQQQ.US', label: 'TQQQ' },
-  { value: 'TSLA', label: 'TSLA (→ TSLL)' },
-  { value: 'NVDA', label: 'NVDA (→ NVDL)' },
-  { value: 'QQQ', label: 'QQQ (→ TQQQ)' },
-];
+import { useSettings } from '@/hooks/use-swr-api';
 
 export default function ReviewPage() {
-  const [symbol, setSymbol] = useState(SYMBOLS[0].value);
+  const { watchedSymbols, symbols: shortSymbols } = useSettings();
+  const SYMBOLS = watchedSymbols.map((s, i) => ({ value: s, label: shortSymbols[i] }));
+
+  const [symbol, setSymbol] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [result, setResult] = useState<PriceAttributionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const activeSymbol = symbol || SYMBOLS[0]?.value || '';
 
   const t = useTranslations('review');
   const tc = useTranslations('common');
@@ -58,14 +56,14 @@ export default function ReviewPage() {
     setResult(null);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const data = await api.getPriceAttribution(symbol, dateStr);
+      const data = await api.getPriceAttribution(activeSymbol, dateStr);
       setResult(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to analyze');
     } finally {
       setLoading(false);
     }
-  }, [symbol, date]);
+  }, [activeSymbol, date]);
 
   return (
     <div className="mx-auto flex h-screen max-w-7xl flex-col overflow-hidden p-6 lg:p-8">
@@ -82,7 +80,7 @@ export default function ReviewPage() {
           <div className="mb-6 flex items-end gap-4 rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">{t('symbol')}</Label>
-              <Select value={symbol} onValueChange={setSymbol}>
+              <Select value={activeSymbol} onValueChange={setSymbol}>
                 <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>

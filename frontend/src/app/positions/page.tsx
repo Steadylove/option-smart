@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Briefcase, Download, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Download, Loader2, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -105,10 +105,6 @@ export default function PositionsPage() {
               <Download className="mr-1.5 h-3.5 w-3.5" />
             )}
             {syncing ? t('syncing') : t('syncFromLongbridge')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            {tc('refresh')}
           </Button>
           <AddPositionDialog onCreated={handleRefresh} />
         </div>

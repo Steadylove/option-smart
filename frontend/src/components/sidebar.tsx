@@ -14,6 +14,7 @@ import {
   Calendar,
   FileBarChart,
   Activity,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -28,7 +29,8 @@ type NavKey =
   | 'aiAdvisor'
   | 'events'
   | 'review'
-  | 'knowledge';
+  | 'knowledge'
+  | 'settings';
 
 const navItems: { href: string; labelKey: NavKey; icon: typeof LayoutDashboard }[] = [
   { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
@@ -81,6 +83,21 @@ export function Sidebar() {
         })}
       </nav>
 
+      <Separator className="bg-border" />
+      <div className="px-3 py-2">
+        <Link
+          href="/settings"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            pathname === '/settings'
+              ? 'bg-primary/15 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          )}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {t('settings')}
+        </Link>
+      </div>
       <Separator className="bg-border" />
       <div className="flex items-center justify-between px-5 py-3">
         <p className="text-[11px] text-muted-foreground">{tSidebar('tagline')}</p>

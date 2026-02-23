@@ -1,7 +1,7 @@
-"""AI chat service — LangChain ChatOpenAI via ZhipuAI's OpenAI-compatible API.
+"""AI chat service — multi-provider LLM support via OpenAI-compatible APIs.
 
-Uses ChatOpenAI.bind_tools() for proper tool calling protocol.
-Supports optional GLM-5 deep thinking mode (disabled by default).
+Supported providers: GLM (ZhipuAI), DeepSeek, Gemini.
+Fallback: if no user API key configured, uses server-side GLM key from env.
 """
 
 import asyncio
@@ -25,10 +25,48 @@ from backend.models.schemas import PositionDiagnosis
 logger = logging.getLogger(__name__)
 
 _MAX_TOOL_ROUNDS = 5
-_API_BASE = "https://open.bigmodel.cn/api/paas/v4"
-
-# Toggle: set True to use GLM-5 with deep thinking for final answers
 _USE_DEEP_THINKING = False
+
+AI_PROVIDERS: dict[str, dict] = {
+    "glm": {
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "fast_model": "glm-4-plus",
+        "flash_model": "glm-4-flash",
+        "deep_model": "glm-5",
+        "supports_deep_thinking": True,
+    },
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "fast_model": "deepseek-chat",
+        "flash_model": "deepseek-chat",
+        "deep_model": "deepseek-reasoner",
+        "supports_deep_thinking": False,
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "fast_model": "gemini-2.0-flash",
+        "flash_model": "gemini-2.0-flash",
+        "deep_model": "gemini-2.5-flash",
+        "supports_deep_thinking": False,
+    },
+}
+
+
+def _resolve_provider() -> tuple[str, str, dict]:
+    """Returns (api_key, provider_name, provider_config).
+
+    Fallback chain: user config → server GLM key.
+    """
+    from backend.services.user_settings import get_ai_api_key, get_ai_provider
+
+    provider = get_ai_provider()
+    user_key = get_ai_api_key()
+
+    if user_key and provider in AI_PROVIDERS:
+        return user_key, provider, AI_PROVIDERS[provider]
+
+    return settings.zhipuai_api_key, "glm", AI_PROVIDERS["glm"]
+
 
 _SYSTEM_PROMPT_BASE = """\
 你是 Robby，OptionSmart 的 AI 顾问，一个专业的期权卖方策略助手。
@@ -74,11 +112,12 @@ def _build_system_prompt(diagnoses: list[PositionDiagnosis]) -> str:
 
 
 def _llm_fast() -> ChatOpenAI:
-    """GLM-4-Plus — tool routing and final answers."""
+    """Build the primary LLM — provider resolved from user settings."""
+    api_key, _, config = _resolve_provider()
     return ChatOpenAI(
-        base_url=_API_BASE,
-        api_key=settings.zhipuai_api_key,
-        model="glm-4-plus",
+        base_url=config["base_url"],
+        api_key=api_key,
+        model=config["fast_model"],
         temperature=0.7,
         max_tokens=4096,
         timeout=60,
@@ -146,13 +185,21 @@ async def _stream_final_thinking(
 ) -> AsyncGenerator[tuple[str, str], None]:
     """Stream via raw httpx with GLM-5 deep thinking.
 
-    Preserved for future use — enable by setting _USE_DEEP_THINKING = True.
+    Only available when using GLM provider.
     Uses aiter_text() to avoid httpx's internal line-buffering.
     """
+    api_key, _provider_name, config = _resolve_provider()
+
+    if not config.get("supports_deep_thinking"):
+        async for chunk in _llm_fast().astream(messages):
+            if chunk.content:
+                yield ("text", chunk.content)
+        return
+
     api_msgs = _lc_to_api(messages)
 
     body = {
-        "model": "glm-5",
+        "model": config["deep_model"],
         "messages": api_msgs,
         "stream": True,
         "temperature": 0.7,
@@ -160,12 +207,14 @@ async def _stream_final_thinking(
         "thinking": {"type": "enabled"},
     }
 
-    headers = {"Authorization": f"Bearer {settings.zhipuai_api_key}"}
+    headers = {"Authorization": f"Bearer {api_key}"}
     timeout = httpx.Timeout(30.0, read=180.0)
 
     async with (
         httpx.AsyncClient(timeout=timeout) as client,
-        client.stream("POST", f"{_API_BASE}/chat/completions", json=body, headers=headers) as resp,
+        client.stream(
+            "POST", f"{config['base_url']}/chat/completions", json=body, headers=headers
+        ) as resp,
     ):
         resp.raise_for_status()
         buf = ""
@@ -281,12 +330,13 @@ async def chat_stream(
 
 
 async def generate_title(user_message: str) -> str:
-    """Generate a short conversation title using a fast model."""
+    """Generate a short conversation title using a fast/flash model."""
     try:
+        api_key, _, config = _resolve_provider()
         llm = ChatOpenAI(
-            base_url=_API_BASE,
-            api_key=settings.zhipuai_api_key,
-            model="glm-4-flash",
+            base_url=config["base_url"],
+            api_key=api_key,
+            model=config["flash_model"],
             temperature=0.3,
             max_tokens=30,
             timeout=10,

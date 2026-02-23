@@ -12,7 +12,8 @@
     "aiAdvisor": "AI Advisor",
     "events": "Events",
     "review": "Review",
-    "knowledge": "Knowledge"
+    "knowledge": "Knowledge",
+    "settings": "Settings"
   },
   "sidebar": {
     "appName": "OptionSmart",
@@ -63,7 +64,12 @@
     "itm": "ITM",
     "otm": "OTM",
     "headerCalls": "CALLS",
-    "headerPuts": "PUTS"
+    "headerPuts": "PUTS",
+    "showingStrikes": "{showing} / {total} strikes",
+    "expandAll": "Show all {total} strikes",
+    "collapseToNear": "ATM ±15 only",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing..."
   },
   "chainHeaders": {
     "oi": "OI",
@@ -92,7 +98,7 @@
     "description": "Monitor, diagnose and manage your option positions",
     "updating": "Updating",
     "syncing": "Syncing...",
-    "syncFromLongbridge": "Sync from Longbridge",
+    "syncFromLongbridge": "Broker Sync",
     "syncComplete": "Sync complete — {synced} imported, {skipped} skipped",
     "syncError": "Failed to sync positions from Longbridge",
     "analysisError": "Failed to load position analysis",
@@ -392,6 +398,24 @@
   },
   "errorBanner": {
     "retry": "Retry"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure watched symbols and AI model preferences",
+    "symbolsTitle": "Watched Symbols",
+    "symbolsDescription": "Add or remove stock symbols to track across the app",
+    "noSymbols": "No symbols configured",
+    "symbolPlaceholder": "Enter symbol, e.g. HIMS",
+    "add": "Add",
+    "aiTitle": "AI Model",
+    "aiDescription": "Select your preferred AI model for analysis and chat",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key...",
+    "apiKeyHint": "If not configured, the server's default GLM key will be used as fallback",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "saveSuccess": "Settings saved successfully"
   },
   "locale": {
     "switchTo": "中文",

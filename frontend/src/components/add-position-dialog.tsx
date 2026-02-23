@@ -16,8 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, type PositionCreate } from '@/lib/api';
-
-const SYMBOLS = ['TQQQ.US', 'TSLL.US', 'NVDL.US'];
+import { useSettings } from '@/hooks/use-swr-api';
 
 interface AddPositionDialogProps {
   onCreated: () => void;
@@ -27,6 +26,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const { watchedSymbols } = useSettings();
 
   const t = useTranslations('addPosition');
   const tc = useTranslations('common');
@@ -42,7 +42,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
   ];
 
   const [form, setForm] = useState({
-    symbol: 'TQQQ.US',
+    symbol: watchedSymbols[0] || 'TQQQ.US',
     option_symbol: '',
     option_type: 'put' as 'call' | 'put',
     direction: 'sell' as 'sell' | 'buy',
@@ -88,7 +88,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
       setOpen(false);
       onCreated();
       setForm({
-        symbol: 'TQQQ.US',
+        symbol: watchedSymbols[0] || 'TQQQ.US',
         option_symbol: '',
         option_type: 'put',
         direction: 'sell',
@@ -131,7 +131,7 @@ export function AddPositionDialog({ onCreated }: AddPositionDialogProps) {
                 onChange={(e) => update('symbol', e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {SYMBOLS.map((s) => (
+                {watchedSymbols.map((s) => (
                   <option key={s} value={s}>
                     {s.replace('.US', '')}
                   </option>

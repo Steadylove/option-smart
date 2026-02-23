@@ -22,7 +22,9 @@ from backend.models.schemas import (
     StockQuote,
     SymbolOverview,
 )
+from backend.services import user_settings as settings_cache
 from backend.services.longbridge import (
+    clear_cache_for,
     get_option_chain,
     get_option_expiry_dates,
     get_option_quotes,
@@ -37,7 +39,7 @@ router = APIRouter(prefix="/api/quote", tags=["quote"])
 async def dashboard():
     """Get overview for all watched symbols."""
     try:
-        quotes = get_stock_quotes(tuple(sorted(settings.watched_symbols)))
+        quotes = get_stock_quotes(tuple(sorted(settings_cache.get_watched_symbols())))
     except Exception as e:
         logger.error("Failed to fetch quotes: %s", e)
         raise HTTPException(status_code=502, detail="Failed to fetch market data")
@@ -90,12 +92,17 @@ async def option_expiries(symbol: str):
         raise HTTPException(status_code=502, detail="Failed to fetch expiry dates")
 
 
+ATM_RANGE = 15  # ±15 strikes around ATM for "near" mode
+
+
 @router.get("/option/chain/{symbol}", response_model=OptionChainWithGreeks)
 async def option_chain_with_greeks(
     symbol: str,
     expiry: str = Query(..., description="Expiry date YYYY-MM-DD"),
+    strikes: str = Query("near", pattern="^(near|all)$"),
+    refresh: bool = Query(False),
 ):
-    """Get full option chain with computed Greeks for a given expiry."""
+    """Get option chain with Greeks. `strikes=near` returns ATM ± 15 only."""
     full_symbol = f"{symbol}.US" if "." not in symbol else symbol
     expiry_date = date.fromisoformat(expiry)
 
@@ -104,6 +111,9 @@ async def option_chain_with_greeks(
             status_code=400,
             detail=f"Expiry date {expiry} is in the past or today",
         )
+
+    if refresh:
+        clear_cache_for("get_option_quotes", "get_stock_quotes")
 
     try:
         spot_quotes = get_stock_quotes((full_symbol,))
@@ -118,7 +128,21 @@ async def option_chain_with_greeks(
         logger.error("Failed to fetch chain for %s: %s", full_symbol, e)
         raise HTTPException(status_code=502, detail="Failed to fetch option chain")
 
-    # Batch fetch all option quotes
+    total_strikes = len(chain)
+
+    # ATM filtering: only fetch nearby strikes to reduce API load
+    if strikes == "near" and total_strikes > ATM_RANGE * 2:
+        sorted_chain = sorted(chain, key=lambda s: float(s["strike"]))
+        atm_idx = min(
+            range(len(sorted_chain)),
+            key=lambda i: abs(float(sorted_chain[i]["strike"]) - spot_price),
+        )
+        lo = max(0, atm_idx - ATM_RANGE)
+        hi = min(total_strikes, atm_idx + ATM_RANGE + 1)
+        chain = sorted_chain[lo:hi]
+
+    is_truncated = len(chain) < total_strikes
+
     all_symbols = []
     for strike_info in chain:
         all_symbols.append(strike_info["call_symbol"])
@@ -141,12 +165,13 @@ async def option_chain_with_greeks(
     puts: list[OptionWithGreeks] = []
 
     logger.info(
-        "Building chain: symbol=%s, spot=%.2f, expiry=%s, dte=%d, contracts=%d",
+        "Building chain: symbol=%s, spot=%.2f, expiry=%s, dte=%d, strikes=%d/%d",
         full_symbol,
         spot_price,
         expiry,
         dte,
         len(chain),
+        total_strikes,
     )
 
     for strike_info in chain:
@@ -157,14 +182,14 @@ async def option_chain_with_greeks(
 
             q = quote_map[opt_sym]
             iv = float(q["implied_volatility"]) if q["implied_volatility"] else 0
-            strike = float(q["strike_price"]) if q["strike_price"] else 0
+            strike_val = float(q["strike_price"]) if q["strike_price"] else 0
 
-            if iv <= 0 or strike <= 0:
+            if iv <= 0 or strike_val <= 0:
                 continue
 
             greeks = calc_greeks(
                 spot=spot_price,
-                strike=strike,
+                strike=strike_val,
                 dte=dte,
                 iv=iv,
                 rate=settings.risk_free_rate,
@@ -198,4 +223,6 @@ async def option_chain_with_greeks(
         calls=calls,
         puts=puts,
         market_open=is_us_market_open(),
+        total_strikes=total_strikes,
+        is_truncated=is_truncated,
     )

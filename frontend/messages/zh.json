@@ -12,7 +12,8 @@
     "aiAdvisor": "AI 顾问",
     "events": "市场事件",
     "review": "复盘分析",
-    "knowledge": "知识库"
+    "knowledge": "知识库",
+    "settings": "设置"
   },
   "sidebar": {
     "appName": "OptionSmart",
@@ -63,7 +64,12 @@
     "itm": "实值",
     "otm": "虚值",
     "headerCalls": "看涨期权",
-    "headerPuts": "看跌期权"
+    "headerPuts": "看跌期权",
+    "showingStrikes": "{showing} / {total} 个行权价",
+    "expandAll": "展开全部 {total} 个行权价",
+    "collapseToNear": "仅 ATM ±15",
+    "refresh": "刷新",
+    "refreshing": "刷新中..."
   },
   "chainHeaders": {
     "oi": "持仓量",
@@ -92,7 +98,7 @@
     "description": "监控、诊断和管理你的期权持仓",
     "updating": "更新中",
     "syncing": "同步中...",
-    "syncFromLongbridge": "从长桥同步",
+    "syncFromLongbridge": "券商同步",
     "syncComplete": "同步完成 — 导入 {synced} 条，跳过 {skipped} 条",
     "syncError": "从长桥同步持仓失败",
     "analysisError": "加载持仓分析失败",
@@ -392,6 +398,24 @@
   },
   "errorBanner": {
     "retry": "重试"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "配置关注标的和 AI 模型偏好",
+    "symbolsTitle": "关注标的",
+    "symbolsDescription": "添加或移除需要跟踪的股票代码",
+    "noSymbols": "未配置任何标的",
+    "symbolPlaceholder": "输入代码，如 HIMS",
+    "add": "添加",
+    "aiTitle": "AI 模型",
+    "aiDescription": "选择用于分析和对话的 AI 模型",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "输入你的 API Key...",
+    "apiKeyHint": "未配置时，将使用服务端默认的 GLM Key 作为兜底",
+    "save": "保存",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "saveSuccess": "设置保存成功"
   },
   "locale": {
     "switchTo": "English",

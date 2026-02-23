@@ -253,6 +253,8 @@ class OptionChainWithGreeks(BaseModel):
     calls: list[OptionWithGreeks]
     puts: list[OptionWithGreeks]
     market_open: bool = False
+    total_strikes: int = 0
+    is_truncated: bool = False
 
 
 class SymbolOverview(BaseModel):

@@ -18,11 +18,22 @@ interface PortfolioSummaryProps {
   data: PortfolioSummaryType;
 }
 
-const SYMBOL_COLORS: Record<string, string> = {
-  TQQQ: 'bg-blue-500',
-  TSLL: 'bg-red-500',
-  NVDL: 'bg-green-500',
-};
+const COLOR_PALETTE = [
+  'bg-blue-500',
+  'bg-red-500',
+  'bg-green-500',
+  'bg-purple-500',
+  'bg-orange-500',
+  'bg-cyan-500',
+  'bg-pink-500',
+  'bg-amber-500',
+];
+
+function symbolColor(sym: string): string {
+  let hash = 0;
+  for (const c of sym) hash = (hash * 31 + c.charCodeAt(0)) | 0;
+  return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length];
+}
 
 const DIRECTION_LABELS: Record<string, string> = {
   sell: 'Short',
@@ -147,7 +158,7 @@ export function PortfolioSummary({ data }: PortfolioSummaryProps) {
                         <div
                           className={cn(
                             'h-1.5 rounded-full',
-                            SYMBOL_COLORS[sym] || 'bg-primary',
+                            symbolColor(sym),
                             pct > 60 && 'opacity-100',
                           )}
                           style={{ width: `${Math.min(pct, 100)}%` }}

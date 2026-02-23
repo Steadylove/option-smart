@@ -15,8 +15,10 @@ export const api = {
   stockQuote: (symbol: string) => request<StockQuote>(`/api/quote/stock/${symbol}`),
   optionExpiries: (symbol: string) =>
     request<{ symbol: string; expiry_dates: string[] }>(`/api/quote/option/expiries/${symbol}`),
-  optionChain: (symbol: string, expiry: string) =>
-    request<OptionChainWithGreeks>(`/api/quote/option/chain/${symbol}?expiry=${expiry}`),
+  optionChain: (symbol: string, expiry: string, strikes = 'near', refresh = false) =>
+    request<OptionChainWithGreeks>(
+      `/api/quote/option/chain/${symbol}?expiry=${expiry}&strikes=${strikes}${refresh ? '&refresh=true' : ''}`,
+    ),
 
   // Positions
   listPositions: (status = 'open') => request<PositionOut[]>(`/api/positions?status=${status}`),
@@ -118,6 +120,15 @@ export const api = {
       '/api/quote/option/refresh-account',
       { method: 'POST' },
     ),
+
+  // Settings
+  getSettings: () => request<SettingsResponse>('/api/settings'),
+  updateSettings: (data: SettingsUpdate) =>
+    request<SettingsResponse>('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
 };
 
 // Re-export types matching backend schemas
@@ -182,6 +193,8 @@ export interface OptionChainWithGreeks {
   calls: OptionWithGreeks[];
   puts: OptionWithGreeks[];
   market_open: boolean;
+  total_strikes: number;
+  is_truncated: boolean;
 }
 
 // ── Option analysis types ───────────────────────────────
@@ -520,6 +533,21 @@ export interface PriceAttributionResponse {
   price_change: number | null;
   price_change_pct: number | null;
   attributions: MarketNewsItem[];
+}
+
+// ── Settings types ─────────────────────────────────────
+
+export interface SettingsResponse {
+  watched_symbols: string[];
+  ai_provider: string;
+  ai_api_key_set: boolean;
+  ai_api_key_masked: string;
+}
+
+export interface SettingsUpdate {
+  watched_symbols?: string[];
+  ai_provider?: string;
+  ai_api_key?: string;
 }
 
 export interface EventTimelineResponse {
