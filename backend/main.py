@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.alert import router as alert_router
+from backend.api.chat import router as chat_router
 from backend.api.position import router as position_router
 from backend.api.quote import router as quote_router
 from backend.api.stress_test import router as stress_test_router
@@ -53,6 +54,7 @@ app.include_router(quote_router)
 app.include_router(position_router)
 app.include_router(stress_test_router)
 app.include_router(alert_router)
+app.include_router(chat_router)
 
 
 @app.get("/api/health")

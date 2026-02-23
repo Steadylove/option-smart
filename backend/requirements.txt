@@ -8,7 +8,7 @@ pydantic-settings
 python-dotenv
 aiosqlite
 sqlalchemy[asyncio]
-httpx
+httpx[socks]
 python-telegram-bot
 zhipuai
 apscheduler

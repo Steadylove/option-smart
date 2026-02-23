@@ -52,6 +52,14 @@ export const api = {
   getDecisions: (positionId: number) =>
     request<DecisionMatrixResponse>(`/api/positions/${positionId}/decisions`),
 
+  // Chat
+  chat: (messages: ChatMessage[], stream = true) =>
+    fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, stream }),
+    }),
+
   // Alerts
   getAlerts: () => request<AlertsResponse>('/api/alerts'),
   getSnapshots: (positionId: number, limit = 30) =>
@@ -311,6 +319,13 @@ export interface DecisionMatrixResponse {
   current_pnl: number;
   health_score: number;
   actions: ActionAlternative[];
+}
+
+// ── Chat types ─────────────────────────────────────────
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 // ── Alert types ────────────────────────────────────────

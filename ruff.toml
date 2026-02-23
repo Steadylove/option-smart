@@ -17,6 +17,7 @@ ignore = [
   "E501",   # line too long (handled by formatter)
   "B008",   # function call in default arg (standard FastAPI Depends pattern)
   "B904",   # raise-without-from in except (intentional for HTTPException — avoids leaking internals)
+  "RUF001", # ambiguous unicode — Chinese text uses fullwidth punctuation intentionally
 ]
 
 [lint.isort]
