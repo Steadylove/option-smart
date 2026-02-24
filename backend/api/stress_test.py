@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.config import settings
 from backend.core.stress_test import SCENARIO_PRESETS, run_stress_scenarios
 from backend.models.database import get_db
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/stress-test", tags=["stress-test"])
 async def stress_test(
     body: StressTestRequest,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Run stress test scenarios against all open positions."""
     try:

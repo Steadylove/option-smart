@@ -17,7 +17,8 @@
   },
   "sidebar": {
     "appName": "OptionSmart",
-    "tagline": "Theta Decay Machine"
+    "tagline": "Theta Decay Machine",
+    "logout": "Disconnect"
   },
   "common": {
     "retry": "Retry",
@@ -470,6 +471,39 @@
     "deepOff": "Enable deep thinking",
     "deepThinking": "Deep thinking...",
     "deepDone": "Deep thinking done"
+  },
+  "landing": {
+    "badge": "Theta Decay Strategy Engine",
+    "heroTitle": "Sell Premium. Collect Theta. Sleep Well.",
+    "heroDesc": "AI-powered option selling assistant for US stock options. Real-time Greeks, portfolio diagnosis, and intelligent alerts — all in one place.",
+    "cta": "Get Started",
+    "ctaStart": "Connect Your Account",
+    "featuresTitle": "Everything You Need to Sell Premium",
+    "featureChain": "Option Chain Analysis",
+    "featureChainDesc": "Real-time option chains with Greeks, IV, POP, and annualized return calculations.",
+    "featureGreeks": "Portfolio Greeks",
+    "featureGreeksDesc": "Aggregate Delta, Gamma, Theta, and Vega across all positions at a glance.",
+    "featureAi": "AI Advisor",
+    "featureAiDesc": "Chat with Robby — your AI-powered options strategist with deep portfolio awareness.",
+    "featureStress": "Stress Testing",
+    "featureStressDesc": "Simulate price shocks, IV changes, and time decay to understand worst-case scenarios.",
+    "featurePositions": "Position Management",
+    "featurePositionsDesc": "Auto-sync from Longbridge, track P&L, health scores, and time value decay.",
+    "featureAlerts": "Smart Alerts",
+    "featureAlertsDesc": "Automated monitoring for take-profit, stop-loss, delta breach, and DTE warnings.",
+    "footer": "OptionSmart — Built for option sellers who value their theta."
+  },
+  "login": {
+    "title": "Connect to Longbridge",
+    "description": "Enter your Longbridge OpenAPI credentials to get started.",
+    "appKeyPlaceholder": "Enter your App Key",
+    "appSecretPlaceholder": "Enter your App Secret",
+    "accessTokenPlaceholder": "Enter your Access Token",
+    "connect": "Connect",
+    "connecting": "Connecting...",
+    "helpText": "Don't have API keys?",
+    "helpLink": "Get them from Longbridge",
+    "securityNote": "Your credentials are stored locally in your browser and never saved to any server."
   },
   "locale": {
     "switchTo": "中文",

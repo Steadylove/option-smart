@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.config import settings
 from backend.core.decision_matrix import build_decision_matrix
 from backend.core.position_analyzer import build_portfolio_summary, build_symbol_summaries
@@ -79,6 +80,7 @@ def _parse_option_symbol(symbol: str) -> dict | None:
 async def list_positions(
     status: str = Query("open", description="Filter by status"),
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     stmt = (
         select(Position)
@@ -93,6 +95,7 @@ async def list_positions(
 async def create_position(
     body: PositionCreate,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     is_option = body.position_type == "option"
     multiplier = 100 if is_option else 1
@@ -128,6 +131,7 @@ async def update_position(
     position_id: int,
     body: PositionUpdate,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     pos = await db.get(Position, position_id)
     if not pos:
@@ -152,6 +156,7 @@ async def update_position(
 async def delete_position(
     position_id: int,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     pos = await db.get(Position, position_id)
     if not pos:
@@ -168,6 +173,7 @@ async def close_position(
     position_id: int,
     close_price: float = Query(...),
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Close a position and calculate realized P&L."""
     pos = await db.get(Position, position_id)
@@ -260,6 +266,7 @@ def _build_account_risk(diagnoses: list) -> AccountRisk | None:
 @router.get("/analysis", response_model=PositionAnalysisResponse)
 async def analyze_positions(
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Full portfolio analysis with server-side result caching."""
     with _analysis_cache_lock:
@@ -310,6 +317,7 @@ class AskRequest(BaseModel):
 async def positions_ask(
     body: AskRequest,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Lightweight SSE streaming Q&A about current positions data."""
     from backend.services.ai import positions_assistant_stream
@@ -359,6 +367,7 @@ class SyncResult(BaseModel):
 @router.post("/sync", response_model=SyncResult)
 async def sync_positions_from_broker(
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Sync all positions (stocks + options) from Longbridge brokerage account."""
     try:
@@ -544,6 +553,7 @@ async def sync_positions_from_broker(
 async def get_decision_matrix(
     position_id: int,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Generate action alternatives for a single position."""
     try:

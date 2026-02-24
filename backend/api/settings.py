@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.config import settings as app_settings
 from backend.models.database import get_db
 from backend.models.user_settings import UserSettings
@@ -67,13 +68,15 @@ def _to_out(row: UserSettings | None) -> SettingsOut:
 
 
 @router.get("", response_model=SettingsOut)
-async def get_settings(db: AsyncSession = Depends(get_db)):
+async def get_settings(db: AsyncSession = Depends(get_db), _=Depends(get_session)):
     result = await db.execute(select(UserSettings).where(UserSettings.id == 1))
     return _to_out(result.scalar_one_or_none())
 
 
 @router.put("", response_model=SettingsOut)
-async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_db)):
+async def update_settings(
+    data: SettingsUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_session)
+):
     result = await db.execute(select(UserSettings).where(UserSettings.id == 1))
     row = result.scalar_one_or_none()
 
@@ -110,7 +113,7 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
 
 
 @router.post("/margin-ratios/refresh", response_model=list[MarginRatioOut])
-async def refresh_margin_ratios(db: AsyncSession = Depends(get_db)):
+async def refresh_margin_ratios(db: AsyncSession = Depends(get_db), _=Depends(get_session)):
     """Batch refresh margin ratios for all watched symbols from Longbridge."""
     symbols = settings_cache.get_watched_symbols()
     results = await margin_svc.batch_refresh(symbols, db)

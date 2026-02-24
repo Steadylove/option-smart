@@ -1,7 +1,28 @@
+import { getSessionToken } from '@/lib/auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+function authHeaders(extra?: HeadersInit): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (extra) {
+    if (extra instanceof Headers) {
+      extra.forEach((v, k) => (headers[k] = v));
+    } else if (Array.isArray(extra)) {
+      extra.forEach(([k, v]) => (headers[k] = v));
+    } else {
+      Object.assign(headers, extra);
+    }
+  }
+  const token = getSessionToken();
+  if (token) headers['X-Session-Token'] = token;
+  return headers;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: authHeaders(init?.headers),
+  });
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`);
   }
@@ -74,7 +95,10 @@ export const api = {
     }),
   getChatTask: (taskId: string) => request<ChatTaskResult>(`/api/chat/task/${taskId}`),
   streamChatTask: (taskId: string, signal?: AbortSignal) =>
-    fetch(`${API_BASE}/api/chat/task/${taskId}/stream`, { signal }),
+    fetch(`${API_BASE}/api/chat/task/${taskId}/stream`, {
+      signal,
+      headers: authHeaders(),
+    }),
 
   // Alerts
   getAlerts: () => request<AlertsResponse>('/api/alerts'),
@@ -99,7 +123,7 @@ export const api = {
   analyzeEvents: () =>
     fetch(`${API_BASE}/api/events/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
     }),
 
   // Option analysis (split: account-info is fast, analyze is slow)
@@ -120,6 +144,18 @@ export const api = {
       '/api/quote/option/refresh-account',
       { method: 'POST' },
     ),
+
+  // Raw chat (used by option analysis follow-up)
+  chat: (messages: ChatMessage[], deepThinking = false) =>
+    fetch(`${API_BASE}/api/positions/ask`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        question: messages[messages.length - 1].content,
+        messages: messages.slice(0, -1),
+        deep_thinking: deepThinking,
+      }),
+    }),
 
   // Settings
   getSettings: () => request<SettingsResponse>('/api/settings'),
@@ -390,6 +426,8 @@ export interface PositionAnalysisResponse {
 
 export interface SyncResult {
   synced: number;
+  updated: number;
+  closed: number;
   skipped: number;
   details: string[];
 }

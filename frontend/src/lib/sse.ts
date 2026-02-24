@@ -1,3 +1,5 @@
+import { getSessionToken } from '@/lib/auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface SseCallbacks {
@@ -16,9 +18,13 @@ export async function streamPostSse(
 ) {
   let res: Response;
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getSessionToken();
+    if (token) headers['X-Session-Token'] = token;
+
     res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal,
     });

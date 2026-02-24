@@ -15,8 +15,10 @@ import {
   FileBarChart,
   Activity,
   Settings,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 
@@ -33,7 +35,7 @@ type NavKey =
   | 'settings';
 
 const navItems: { href: string; labelKey: NavKey; icon: typeof LayoutDashboard }[] = [
-  { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
   { href: '/chain', labelKey: 'optionChain', icon: LinkIcon },
   { href: '/positions', labelKey: 'positions', icon: Briefcase },
   { href: '/risk', labelKey: 'stressTest', icon: ShieldAlert },
@@ -48,17 +50,18 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations('nav');
   const tSidebar = useTranslations('sidebar');
+  const { disconnect } = useAuth();
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
-      <div className="flex h-14 items-center gap-2.5 px-5">
+      <Link href="/" className="flex h-14 items-center gap-2.5 px-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
           <Activity className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
           {tSidebar('appName')}
         </span>
-      </div>
+      </Link>
 
       <Separator className="bg-border" />
 
@@ -100,8 +103,19 @@ export function Sidebar() {
       </div>
       <Separator className="bg-border" />
       <div className="flex items-center justify-between px-5 py-3">
-        <p className="text-[11px] text-muted-foreground">{tSidebar('tagline')}</p>
-        <LocaleSwitcher />
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] text-muted-foreground">{tSidebar('tagline')}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <LocaleSwitcher />
+          <button
+            onClick={disconnect}
+            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
+            title={tSidebar('logout')}
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     </aside>
   );

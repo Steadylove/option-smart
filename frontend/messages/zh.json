@@ -17,7 +17,8 @@
   },
   "sidebar": {
     "appName": "OptionSmart",
-    "tagline": "Theta 收割机"
+    "tagline": "Theta 收割机",
+    "logout": "断开连接"
   },
   "common": {
     "retry": "重试",
@@ -470,6 +471,39 @@
     "deepOff": "开启深度思考",
     "deepThinking": "正在深度思考...",
     "deepDone": "深度思考完成"
+  },
+  "landing": {
+    "badge": "Theta 收割引擎",
+    "heroTitle": "躺着收租，让时间替你打工",
+    "heroDesc": "美股期权卖方的 AI 助手 — 盯盘、诊断、提醒，一站搞定。",
+    "cta": "开始使用",
+    "ctaStart": "连接你的账户",
+    "featuresTitle": "核心能力",
+    "featureChain": "期权链",
+    "featureChainDesc": "Greeks、IV、胜率、年化，选合约一目了然。",
+    "featureGreeks": "Greeks 全景",
+    "featureGreeksDesc": "组合级风险敞口实时聚合。",
+    "featureAi": "AI 顾问",
+    "featureAiDesc": "Robby 了解你的持仓，随时给出操作建议。",
+    "featureStress": "压力测试",
+    "featureStressDesc": "模拟极端行情，提前算清最坏情况。",
+    "featurePositions": "持仓看板",
+    "featurePositionsDesc": "券商同步，盈亏与时间价值全程追踪。",
+    "featureAlerts": "智能提醒",
+    "featureAlertsDesc": "止盈止损、Delta 越线、临近到期，自动预警。",
+    "footer": "OptionSmart — 让每一天的 Theta 都不白流。"
+  },
+  "login": {
+    "title": "连接长桥账户",
+    "description": "输入你的长桥 OpenAPI 凭证即可开始使用。",
+    "appKeyPlaceholder": "输入 App Key",
+    "appSecretPlaceholder": "输入 App Secret",
+    "accessTokenPlaceholder": "输入 Access Token",
+    "connect": "连接",
+    "connecting": "连接中...",
+    "helpText": "还没有 API Key？",
+    "helpLink": "前往长桥开放平台获取",
+    "securityNote": "你的凭证仅保存在浏览器本地，不会上传到任何服务器。"
   },
   "locale": {
     "switchTo": "English",

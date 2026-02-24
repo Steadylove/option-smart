@@ -71,6 +71,15 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # Session idle cleanup — every hour
+    scheduler.add_job(
+        _cleanup_idle_sessions,
+        trigger=IntervalTrigger(hours=1),
+        id="session_cleanup",
+        name="Cleanup idle sessions",
+        replace_existing=True,
+    )
+
     # Account balance refresh — daily at 09:30 ET (market open)
     scheduler.add_job(
         _refresh_account_balance,
@@ -95,6 +104,15 @@ async def _refresh_account_balance() -> None:
         logger.info("Account balance refreshed")
     except Exception:
         logger.exception("Account balance refresh failed")
+
+
+async def _cleanup_idle_sessions() -> None:
+    """Evict sessions that haven't sent a request in 7 days."""
+    from backend.services.session import session_manager
+
+    removed = session_manager.cleanup_stale()
+    if removed:
+        logger.info("Session cleanup: removed %d idle session(s)", removed)
 
 
 def stop_scheduler() -> None:

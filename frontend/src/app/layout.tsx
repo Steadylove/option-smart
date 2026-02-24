@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { Sidebar } from '@/components/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
 
@@ -33,12 +32,7 @@ export default async function RootLayout({
     <html lang={locale} className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider messages={messages}>
-          <TooltipProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <main className="flex-1 overflow-y-auto">{children}</main>
-            </div>
-          </TooltipProvider>
+          <TooltipProvider>{children}</TooltipProvider>
         </NextIntlClientProvider>
       </body>
     </html>

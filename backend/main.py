@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.alert import router as alert_router
+from backend.api.auth import router as auth_router
 from backend.api.chat import router as chat_router
 from backend.api.event import router as event_router
 from backend.api.option_analyze import router as option_analyze_router
@@ -24,7 +25,6 @@ from backend.models.user_settings import UserSettings  # noqa: F401
 from backend.services import margin as margin_svc
 from backend.services import user_settings as settings_cache
 from backend.services.longbridge import get_cache_stats
-from backend.services.longbridge import warmup as warmup_longbridge
 from backend.tasks.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -41,7 +41,6 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database ready")
     await settings_cache.load()
-    warmup_longbridge()
 
     # Load persisted margin ratios into memory
     from backend.models.database import async_session
@@ -69,6 +68,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(quote_router)
 app.include_router(position_router)
 app.include_router(stress_test_router)

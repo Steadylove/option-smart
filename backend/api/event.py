@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.core.event_analyzer import (
     attribute_price_move,
     build_event_timeline,
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 @router.get("/upcoming")
 async def upcoming_events(
     days: int = Query(14, ge=1, le=90),
+    _=Depends(get_session),
 ):
     """Get upcoming market events (earnings, FOMC, CPI, etc.)."""
     events = await get_upcoming_events(days_ahead=days)
@@ -39,6 +41,7 @@ async def upcoming_events(
 async def event_timeline(
     days_back: int = Query(7, ge=1, le=30),
     days_ahead: int = Query(14, ge=1, le=90),
+    _=Depends(get_session),
 ):
     """Get a combined timeline of past news and future events."""
     return await build_event_timeline(days_back=days_back, days_ahead=days_ahead)
@@ -48,6 +51,7 @@ async def event_timeline(
 async def market_news(
     symbol: str = Query("", description="Symbol like TQQQ.US or NVDA"),
     days: int = Query(7, ge=1, le=30),
+    _=Depends(get_session),
 ):
     """Get recent news from local DB (synced daily, no live Finnhub calls)."""
     underlyings = resolve_underlyings(symbol) if symbol else get_underlying_symbols()[:5]
@@ -85,6 +89,7 @@ async def market_news(
 async def price_attribution(
     symbol: str = Query(..., description="Symbol like TQQQ.US or NVDA"),
     target_date: date = Query(None, alias="date"),
+    _=Depends(get_session),
 ):
     """Analyze why price moved on a given date."""
     return await attribute_price_move(symbol, target_date)
@@ -93,6 +98,7 @@ async def price_attribution(
 @router.post("/analyze")
 async def analyze_events(
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """AI-powered event analysis — streaming SSE response.
 

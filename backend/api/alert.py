@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.core.alert_engine import evaluate_portfolio
 from backend.models.database import get_db
 from backend.models.position_snapshot import PositionSnapshot
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 @router.get("", response_model=AlertsResponse)
 async def get_alerts(
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Evaluate current portfolio and return all active alerts."""
     diagnoses = await load_diagnoses(db)
@@ -38,6 +40,7 @@ async def get_position_snapshots(
     position_id: int,
     limit: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Get historical snapshots for a position (lifecycle tracking)."""
     stmt = (

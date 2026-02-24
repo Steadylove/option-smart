@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.models.chat import ChatConversation
 from backend.models.database import get_db
 from backend.services.chat_task import TaskStatus, create_task, get_task
@@ -68,7 +69,7 @@ def _conv_to_out(conv: ChatConversation) -> ConversationOut:
 
 
 @router.get("/conversations")
-async def list_conversations(db: AsyncSession = Depends(get_db)):
+async def list_conversations(db: AsyncSession = Depends(get_db), _=Depends(get_session)):
     result = await db.execute(
         select(ChatConversation).order_by(
             ChatConversation.pinned.desc(),
@@ -80,7 +81,7 @@ async def list_conversations(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/conversations")
-async def create_conversation(db: AsyncSession = Depends(get_db)):
+async def create_conversation(db: AsyncSession = Depends(get_db), _=Depends(get_session)):
     conv = ChatConversation()
     db.add(conv)
     await db.commit()
@@ -89,7 +90,9 @@ async def create_conversation(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/conversations/{conv_id}")
-async def get_conversation(conv_id: str, db: AsyncSession = Depends(get_db)):
+async def get_conversation(
+    conv_id: str, db: AsyncSession = Depends(get_db), _=Depends(get_session)
+):
     conv = await db.get(ChatConversation, conv_id)
     if not conv:
         raise HTTPException(404, "Conversation not found")
@@ -101,6 +104,7 @@ async def update_conversation(
     conv_id: str,
     body: ConversationUpdate,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     conv = await db.get(ChatConversation, conv_id)
     if not conv:
@@ -116,7 +120,9 @@ async def update_conversation(
 
 
 @router.delete("/conversations/{conv_id}", status_code=204)
-async def delete_conversation(conv_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_conversation(
+    conv_id: str, db: AsyncSession = Depends(get_db), _=Depends(get_session)
+):
     conv = await db.get(ChatConversation, conv_id)
     if not conv:
         raise HTTPException(404, "Conversation not found")
@@ -132,6 +138,7 @@ async def send_message(
     conv_id: str,
     body: SendMessageRequest,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     conv = await db.get(ChatConversation, conv_id)
     if not conv:
@@ -155,7 +162,7 @@ async def send_message(
 
 
 @router.get("/chat/task/{task_id}")
-async def get_chat_task(task_id: str):
+async def get_chat_task(task_id: str, _=Depends(get_session)):
     task = get_task(task_id)
     if not task:
         raise HTTPException(404, "Task not found or expired")
@@ -170,7 +177,7 @@ async def get_chat_task(task_id: str):
 
 
 @router.get("/chat/task/{task_id}/stream")
-async def stream_chat_task(task_id: str):
+async def stream_chat_task(task_id: str, _=Depends(get_session)):
     task = get_task(task_id)
     if not task:
         raise HTTPException(404, "Task not found or expired")

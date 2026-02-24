@@ -2,8 +2,12 @@
 
 All external API calls are wrapped with TTL caching and throttling to
 stay well within Longbridge rate limits.
+
+Uses a contextvar to determine which user session's connection to use.
+The contextvar is set automatically by the auth dependency on each request.
 """
 
+import contextvars
 import logging
 import time
 from datetime import date
@@ -11,28 +15,44 @@ from decimal import Decimal
 from functools import wraps
 from threading import Lock
 
-from longport.openapi import Config, OrderSide, OrderType, QuoteContext, TradeContext
+from longport.openapi import OrderSide, OrderType, QuoteContext, TradeContext
 
-from backend.config import settings
 from backend.core.market_hours import is_us_market_open
 
 logger = logging.getLogger(__name__)
 
-_config: Config | None = None
-_quote_ctx: QuoteContext | None = None
-_trade_ctx: TradeContext | None = None
+# The auth dependency sets this per-request so downstream code uses the right connection.
+current_session: contextvars.ContextVar = contextvars.ContextVar("current_session", default=None)
 
 
-def _get_config() -> Config:
-    """Shared Config singleton — created once, reused by both contexts."""
-    global _config
-    if _config is None:
-        _config = Config(
-            app_key=settings.longport_app_key,
-            app_secret=settings.longport_app_secret,
-            access_token=settings.longport_access_token,
-        )
-    return _config
+def _session_prefix() -> str:
+    s = current_session.get(None)
+    return s.token[:12] if s else "global"
+
+
+def get_quote_ctx() -> QuoteContext:
+    """Get QuoteContext from the current request's session."""
+    session = current_session.get(None)
+    if session is None:
+        # Fallback for background tasks: use first available session
+        from backend.services.session import session_manager
+
+        session = session_manager.first_session()
+        if session is None:
+            raise RuntimeError("No active session — user must connect first")
+    return session.quote_ctx
+
+
+def get_trade_ctx() -> TradeContext:
+    """Get TradeContext from the current request's session."""
+    session = current_session.get(None)
+    if session is None:
+        from backend.services.session import session_manager
+
+        session = session_manager.first_session()
+        if session is None:
+            raise RuntimeError("No active session — user must connect first")
+    return session.trade_ctx
 
 
 # ── TTL cache ──────────────────────────────────────────────
@@ -49,6 +69,7 @@ def _cached(ttl_seconds: int, *, market_aware: bool = False):
 
     When market_aware=True, uses ttl_seconds during trading hours
     and 24h outside trading hours to avoid unnecessary API calls.
+    Cache keys are prefixed with the session token for per-user isolation.
     """
 
     def decorator(fn):
@@ -58,7 +79,8 @@ def _cached(ttl_seconds: int, *, market_aware: bool = False):
             if market_aware and not is_us_market_open():
                 effective_ttl = _OFF_HOURS_TTL
 
-            key = f"{fn.__name__}:{args}:{kwargs}"
+            prefix = _session_prefix()
+            key = f"{prefix}:{fn.__name__}:{args}:{kwargs}"
             now = time.monotonic()
 
             with _cache_lock:
@@ -97,7 +119,7 @@ def clear_cache():
 def clear_cache_for(*fn_names: str):
     """Clear cache entries for specific functions."""
     with _cache_lock:
-        keys = [k for k in _cache if any(k.startswith(f"{fn}:") for fn in fn_names)]
+        keys = [k for k in _cache if any(fn in k for fn in fn_names)]
         for k in keys:
             del _cache[k]
     if keys:
@@ -108,9 +130,7 @@ def clear_account_cache():
     """Clear only account-related cache entries (balance + max qty)."""
     with _cache_lock:
         keys_to_remove = [
-            k
-            for k in _cache
-            if k.startswith("get_account_balance:") or k.startswith("get_max_purchase_quantity:")
+            k for k in _cache if "get_account_balance:" in k or "get_max_purchase_quantity:" in k
         ]
         for k in keys_to_remove:
             del _cache[k]
@@ -160,42 +180,6 @@ def _throttled_option_quote(symbols: list[str]) -> list:
             raise
 
     return ctx.option_quote(symbols)
-
-
-# ── Quote context ──────────────────────────────────────────
-
-
-def get_quote_ctx() -> QuoteContext:
-    """Lazy-init singleton QuoteContext — one long-lived connection."""
-    global _quote_ctx
-    if _quote_ctx is None:
-        _quote_ctx = QuoteContext(_get_config())
-        logger.info("Longbridge QuoteContext initialized")
-    return _quote_ctx
-
-
-def warmup() -> None:
-    """Pre-initialize QuoteContext + TradeContext at startup to avoid cold-start."""
-    try:
-        get_quote_ctx()
-    except Exception as e:
-        logger.warning("Warmup QuoteContext failed: %s", e)
-    try:
-        get_trade_ctx()
-    except Exception as e:
-        logger.warning("Warmup TradeContext failed: %s", e)
-
-
-# ── Trade context ─────────────────────────────────────────
-
-
-def get_trade_ctx() -> TradeContext:
-    """Lazy-init singleton TradeContext — one long-lived connection."""
-    global _trade_ctx
-    if _trade_ctx is None:
-        _trade_ctx = TradeContext(_get_config())
-        logger.info("Longbridge TradeContext initialized")
-    return _trade_ctx
 
 
 # ── Account positions (rarely change, cache long) ────────

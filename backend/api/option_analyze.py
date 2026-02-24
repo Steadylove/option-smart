@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.deps import get_session
 from backend.models.database import get_db
 from backend.services.ai import chat_with_tools
 from backend.services.longbridge import (
@@ -70,7 +71,7 @@ ANALYZE_PROMPT = """\
 
 
 @router.post("/account-info", response_model=AccountInfoResponse)
-async def account_info(body: OptionAnalyzeRequest):
+async def account_info(body: OptionAnalyzeRequest, _=Depends(get_session)):
     """Return account balance + max buy/sell qty. Fast — uses cached data."""
     loop = asyncio.get_event_loop()
 
@@ -94,6 +95,7 @@ async def account_info(body: OptionAnalyzeRequest):
 async def analyze_option(
     body: OptionAnalyzeRequest,
     db: AsyncSession = Depends(get_db),
+    _=Depends(get_session),
 ):
     """Return AI analysis for an option. Slower — calls LLM with tools."""
     loop = asyncio.get_event_loop()
@@ -173,7 +175,7 @@ async def analyze_option(
 
 
 @router.post("/refresh-account")
-async def refresh_account():
+async def refresh_account(_=Depends(get_session)):
     """Manually clear account cache and re-fetch fresh data."""
     clear_account_cache()
     account = _safe_account_balance()
