@@ -37,7 +37,7 @@ BACKEND_PID=$!
 
 echo "Starting frontend..."
 cd "$PROJECT_ROOT/frontend"
-npm run dev -- --port "$F_PORT" &
+pnpm dev --port "$F_PORT" &
 FRONTEND_PID=$!
 
 echo ""
