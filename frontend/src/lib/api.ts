@@ -1,6 +1,6 @@
 import { getSessionToken } from '@/lib/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 function authHeaders(extra?: HeadersInit): Record<string, string> {
   const headers: Record<string, string> = {};
