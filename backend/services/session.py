@@ -1,10 +1,14 @@
-"""User session management — per-user Longbridge connections stored in memory."""
+"""User session management — per-user Longbridge TradeContext stored in memory.
+
+Market data uses the system-level QuoteContext (see longbridge.py).
+User sessions only hold TradeContext for positions/balance/margin.
+"""
 
 import hashlib
 import logging
 import time
 
-from longport.openapi import Config, QuoteContext, TradeContext
+from longport.openapi import Config, TradeContext
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +16,7 @@ SESSION_MAX_IDLE_SECONDS = 7 * 24 * 3600  # 7 days
 
 
 class UserSession:
-    """Holds a single user's Longbridge connection state."""
+    """Holds a single user's Longbridge TradeContext for positions/balance."""
 
     def __init__(self, app_key: str, app_secret: str, access_token: str, token: str):
         self.token = token
@@ -21,17 +25,9 @@ class UserSession:
             app_secret=app_secret,
             access_token=access_token,
         )
-        self._quote_ctx: QuoteContext | None = None
         self._trade_ctx: TradeContext | None = None
         self.created_at = time.monotonic()
         self.last_active = time.monotonic()
-
-    @property
-    def quote_ctx(self) -> QuoteContext:
-        if self._quote_ctx is None:
-            self._quote_ctx = QuoteContext(self.config)
-            logger.info("QuoteContext initialized for session %s…", self.token[:8])
-        return self._quote_ctx
 
     @property
     def trade_ctx(self) -> TradeContext:
@@ -56,7 +52,7 @@ class SessionManager:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def connect(self, app_key: str, app_secret: str, access_token: str) -> tuple[str, UserSession]:
-        """Create or reuse a session. Validates by initializing QuoteContext."""
+        """Create or reuse a session. Validates by initializing TradeContext."""
         token = self._make_token(app_key, app_secret, access_token)
 
         if token in self._sessions:
@@ -66,8 +62,8 @@ class SessionManager:
             return token, session
 
         session = UserSession(app_key, app_secret, access_token, token)
-        # Validate credentials by initializing QuoteContext (will raise on bad creds)
-        _ = session.quote_ctx
+        # Validate credentials by initializing TradeContext (will raise on bad creds)
+        _ = session.trade_ctx
         self._sessions[token] = session
         logger.info("New session created: %s…", token[:8])
         return token, session

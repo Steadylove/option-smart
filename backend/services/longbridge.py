@@ -3,8 +3,9 @@
 All external API calls are wrapped with TTL caching and throttling to
 stay well within Longbridge rate limits.
 
-Uses a contextvar to determine which user session's connection to use.
-The contextvar is set automatically by the auth dependency on each request.
+Two-tier credential model:
+  - System QuoteContext: uses .env keys for market data (no login required)
+  - User TradeContext: uses per-user keys for positions/balance (login required)
 """
 
 import contextvars
@@ -15,36 +16,44 @@ from decimal import Decimal
 from functools import wraps
 from threading import Lock
 
-from longport.openapi import OrderSide, OrderType, QuoteContext, TradeContext
+from longport.openapi import Config, OrderSide, OrderType, QuoteContext, TradeContext
 
+from backend.config import settings
 from backend.core.market_hours import is_us_market_open
 
 logger = logging.getLogger(__name__)
 
-# The auth dependency sets this per-request so downstream code uses the right connection.
+# Per-request user session (for TradeContext only)
 current_session: contextvars.ContextVar = contextvars.ContextVar("current_session", default=None)
 
+# System-level QuoteContext initialized at startup with .env credentials
+_system_quote_ctx: QuoteContext | None = None
 
-def _session_prefix() -> str:
-    s = current_session.get(None)
-    return s.token[:12] if s else "global"
+
+def init_system_quote_ctx() -> None:
+    """Initialize system-level QuoteContext from .env credentials. Called once at startup."""
+    global _system_quote_ctx
+    if not settings.longport_app_key:
+        logger.warning("LONGPORT_APP_KEY not set — system QuoteContext unavailable")
+        return
+    cfg = Config(
+        app_key=settings.longport_app_key,
+        app_secret=settings.longport_app_secret,
+        access_token=settings.longport_access_token,
+    )
+    _system_quote_ctx = QuoteContext(cfg)
+    logger.info("System QuoteContext initialized (market data ready)")
 
 
 def get_quote_ctx() -> QuoteContext:
-    """Get QuoteContext from the current request's session."""
-    session = current_session.get(None)
-    if session is None:
-        # Fallback for background tasks: use first available session
-        from backend.services.session import session_manager
-
-        session = session_manager.first_session()
-        if session is None:
-            raise RuntimeError("No active session — user must connect first")
-    return session.quote_ctx
+    """Get system-level QuoteContext for market data."""
+    if _system_quote_ctx is None:
+        raise RuntimeError("System QuoteContext not initialized — check .env LONGPORT_* keys")
+    return _system_quote_ctx
 
 
 def get_trade_ctx() -> TradeContext:
-    """Get TradeContext from the current request's session."""
+    """Get TradeContext from the current user's session."""
     session = current_session.get(None)
     if session is None:
         from backend.services.session import session_manager
@@ -53,6 +62,12 @@ def get_trade_ctx() -> TradeContext:
         if session is None:
             raise RuntimeError("No active session — user must connect first")
     return session.trade_ctx
+
+
+def _session_prefix() -> str:
+    """Cache key prefix: per-user for trade data, 'system' for market data."""
+    s = current_session.get(None)
+    return s.token[:12] if s else "system"
 
 
 # ── TTL cache ──────────────────────────────────────────────

@@ -160,6 +160,11 @@ export default function LandingPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              <Link href="/dashboard">
+                <Button size="lg" variant="outline" className="gap-2">
+                  {t('ctaBrowse')}
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

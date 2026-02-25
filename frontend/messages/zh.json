@@ -478,6 +478,7 @@
     "heroDesc": "美股期权卖方的 AI 助手 — 盯盘、诊断、提醒，一站搞定。",
     "cta": "开始使用",
     "ctaStart": "连接你的账户",
+    "ctaBrowse": "浏览行情",
     "featuresTitle": "核心能力",
     "featureChain": "期权链",
     "featureChainDesc": "Greeks、IV、胜率、年化，选合约一目了然。",

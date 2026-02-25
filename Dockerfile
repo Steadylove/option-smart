@@ -8,6 +8,7 @@ COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
+ENV NEXT_PUBLIC_API_URL=""
 RUN pnpm build
 
 # ── Stage 2: Install backend deps ────────────────────────
@@ -38,6 +39,7 @@ COPY --from=frontend-builder /app/frontend/node_modules ./frontend/node_modules
 COPY --from=frontend-builder /app/frontend/package.json ./frontend/package.json
 COPY --from=frontend-builder /app/frontend/public ./frontend/public
 COPY --from=frontend-builder /app/frontend/next.config.ts ./frontend/next.config.ts
+COPY --from=frontend-builder /app/frontend/tsconfig.json ./frontend/tsconfig.json
 COPY --from=frontend-builder /app/frontend/messages ./frontend/messages
 
 # Supervisor config
@@ -48,6 +50,7 @@ RUN mkdir -p /app/data
 
 ENV PYTHONPATH=/app
 ENV NODE_ENV=production
+ENV NEXT_PUBLIC_API_URL=""
 
 EXPOSE 3000
 

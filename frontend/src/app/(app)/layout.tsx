@@ -1,12 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/sidebar';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { status } = useAuth();
-  const router = useRouter();
 
   if (status === 'loading') {
     return (
@@ -17,11 +15,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
-  }
-
-  if (status === 'unauthenticated') {
-    router.replace('/login');
-    return null;
   }
 
   return (

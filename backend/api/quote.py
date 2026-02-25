@@ -3,9 +3,8 @@
 import logging
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from backend.api.deps import get_session
 from backend.config import settings
 from backend.core.greeks import (
     calc_annualized_return,
@@ -37,7 +36,7 @@ router = APIRouter(prefix="/api/quote", tags=["quote"])
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
-async def dashboard(_=Depends(get_session)):
+async def dashboard():
     """Get overview for all watched symbols."""
     try:
         quotes = get_stock_quotes(tuple(sorted(settings_cache.get_watched_symbols())))
@@ -62,7 +61,7 @@ async def dashboard(_=Depends(get_session)):
 
 
 @router.get("/stock/{symbol}")
-async def stock_quote(symbol: str, _=Depends(get_session)):
+async def stock_quote(symbol: str):
     """Get real-time quote for a single stock/ETF."""
     full_symbol = f"{symbol}.US" if "." not in symbol else symbol
     try:
@@ -82,7 +81,7 @@ async def stock_quote(symbol: str, _=Depends(get_session)):
 
 
 @router.get("/option/expiries/{symbol}")
-async def option_expiries(symbol: str, _=Depends(get_session)):
+async def option_expiries(symbol: str):
     """Get available option expiry dates for a symbol."""
     full_symbol = f"{symbol}.US" if "." not in symbol else symbol
     try:
@@ -102,7 +101,6 @@ async def option_chain_with_greeks(
     expiry: str = Query(..., description="Expiry date YYYY-MM-DD"),
     strikes: str = Query("near", pattern="^(near|all)$"),
     refresh: bool = Query(False),
-    _=Depends(get_session),
 ):
     """Get option chain with Greeks. `strikes=near` returns ATM ± 15 only."""
     full_symbol = f"{symbol}.US" if "." not in symbol else symbol

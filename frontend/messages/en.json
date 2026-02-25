@@ -478,6 +478,7 @@
     "heroDesc": "AI-powered option selling assistant for US stock options. Real-time Greeks, portfolio diagnosis, and intelligent alerts — all in one place.",
     "cta": "Get Started",
     "ctaStart": "Connect Your Account",
+    "ctaBrowse": "Browse Market",
     "featuresTitle": "Everything You Need to Sell Premium",
     "featureChain": "Option Chain Analysis",
     "featureChainDesc": "Real-time option chains with Greeks, IV, POP, and annualized return calculations.",

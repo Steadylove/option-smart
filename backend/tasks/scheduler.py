@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from backend.services.longbridge import clear_account_cache, get_account_balance
+from backend.services.longbridge import clear_account_cache
 from backend.tasks.alert_scan import run_alert_scan
 from backend.tasks.daily_report import run_daily_report
 from backend.tasks.event_sync import run_sync_earnings, run_sync_news, sync_news
@@ -97,13 +97,12 @@ def start_scheduler() -> None:
 
 
 async def _refresh_account_balance() -> None:
-    """Clear account cache and re-fetch, so the next request uses fresh data."""
+    """Clear account cache so next user request fetches fresh data."""
     try:
         clear_account_cache()
-        get_account_balance()
-        logger.info("Account balance refreshed")
+        logger.info("Account balance cache cleared (will refresh on next user request)")
     except Exception:
-        logger.exception("Account balance refresh failed")
+        logger.exception("Account balance cache clear failed")
 
 
 async def _cleanup_idle_sessions() -> None:

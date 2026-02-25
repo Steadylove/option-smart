@@ -24,7 +24,7 @@ from backend.models.position_snapshot import PositionSnapshot  # noqa: F401
 from backend.models.user_settings import UserSettings  # noqa: F401
 from backend.services import margin as margin_svc
 from backend.services import user_settings as settings_cache
-from backend.services.longbridge import get_cache_stats
+from backend.services.longbridge import get_cache_stats, init_system_quote_ctx
 from backend.tasks.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -48,6 +48,7 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await margin_svc.load_all(db)
 
+    init_system_quote_ctx()
     start_scheduler()
     yield
     stop_scheduler()
