@@ -13,7 +13,6 @@ import {
   BookOpen,
   Calendar,
   FileBarChart,
-  Activity,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { Logo } from '@/components/logo';
 
 type NavKey =
   | 'dashboard'
@@ -54,14 +54,9 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
-      <Link href="/" className="flex h-14 items-center gap-2.5 px-5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-          <Activity className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
-          {tSidebar('appName')}
-        </span>
-      </Link>
+      <div className="flex h-14 items-center px-5">
+        <Logo />
+      </div>
 
       <Separator className="bg-border" />
 

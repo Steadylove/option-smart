@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Activity, Eye, EyeOff, ExternalLink, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, ExternalLink, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { isAuthenticated } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const t = useTranslations('login');
@@ -54,13 +55,8 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-            <Activity className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-sm font-bold tracking-tight">OptionSmart</span>
-        </Link>
+      <header className="flex items-center justify-between px-6 py-4 lg:px-12">
+        <Logo />
         <LocaleSwitcher />
       </header>
 

@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
-  Activity,
   ArrowRight,
   BarChart3,
   Brain,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { Logo } from '@/components/logo';
 import {
   PreviewOptionChain,
   PreviewGreeks,
@@ -59,6 +59,36 @@ function useRevealOnScroll() {
   return ref;
 }
 
+function useSnapWheel(containerRef: React.RefObject<HTMLDivElement | null>) {
+  const isScrolling = useRef(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isScrolling.current) return;
+
+      const sections = el.querySelectorAll<HTMLElement>(':scope > section');
+      const currentIdx = Math.round(el.scrollTop / el.clientHeight);
+      const nextIdx =
+        e.deltaY > 0 ? Math.min(currentIdx + 1, sections.length - 1) : Math.max(currentIdx - 1, 0);
+
+      if (nextIdx === currentIdx) return;
+
+      isScrolling.current = true;
+      sections[nextIdx].scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => {
+        isScrolling.current = false;
+      }, 800);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [containerRef]);
+}
+
 function MarqueeCard({ item }: { item: (typeof marqueeCards)[number] }) {
   const { Preview, label } = item;
   return (
@@ -74,6 +104,7 @@ function MarqueeCard({ item }: { item: (typeof marqueeCards)[number] }) {
 export default function LandingPage() {
   const t = useTranslations('landing');
   const revealRef = useRevealOnScroll();
+  useSnapWheel(revealRef);
 
   const features = [
     { icon: LineChart, titleKey: 'featureChain', descKey: 'featureChainDesc' },
@@ -90,12 +121,7 @@ export default function LandingPage() {
       <section className="relative flex h-screen snap-start flex-col">
         {/* Navbar */}
         <header className="animate-fade-in flex items-center justify-between px-6 py-4 lg:px-12">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Activity className="h-4.5 w-4.5 text-primary-foreground" />
-            </div>
-            <span className="text-base font-bold tracking-tight">OptionSmart</span>
-          </Link>
+          <Logo />
           <LocaleSwitcher />
         </header>
 
