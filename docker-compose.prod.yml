@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    image: ghcr.io/steadylove/option-smart:latest
     ports:
       - '${FRONTEND_PORT:-3000}:3000'
     env_file:
